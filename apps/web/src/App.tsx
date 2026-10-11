@@ -233,7 +233,7 @@ export default function App() {
       <label className="checkbox"><input type="checkbox" checked={dryRun} onChange={e=>setDryRun(e.target.checked)} />保存せず形式を検証</label>
       <button className="primary" disabled={busy||!file||apiState!=='ready'}>{dryRun?'Validate fixture':'Import fixture'}</button>
     </form>
-    {result && <p className="success" role="status">{result.status==='dry_run'
+    {result && <p className="success" role="status" aria-label="Import result">{result.status==='dry_run'
       ? '検証完了: '+result.conversations+'会話 / '+result.messages+'メッセージ。保存0件。'
       : '保存 '+result.counts?.messages_inserted+'件 / 重複追加0件（既存 '+result.counts?.messages_duplicates+'件）。'}</p>}
   </article>
@@ -279,7 +279,7 @@ export default function App() {
                 sources.map(s=><div key={s.id} className="line"><b>{s.provider}</b><span>{s.account_alias}</span><small>手動取り込み · 合成のみ</small></div>)}
               <p>外部プロバイダとの接続: 0件</p>
               <button type="button" className="secondary" disabled={busy||apiState!=='ready'} onClick={()=>void checkIntegrity()}>Check stored data integrity</button>
-              {integrity && <p className={integrity.ok?'success':'error'} role="status">{integrity.ok?'保存済みデータの整合性: PASS':'保存済みデータの整合性: FAIL'}
+              {integrity && <p className={integrity.ok?'success':'error'} role="status" aria-label="Stored data integrity">{integrity.ok?'保存済みデータの整合性: PASS':'保存済みデータの整合性: FAIL'}
                 {' · 問題 '+Object.values(integrity.checks).reduce((a,b)=>a+b,0)+'件'}</p>}
               <p className="muted">整合性検査は保存済みレコードが対象です。プロバイダ側の履歴全件取得は未検証です。</p>
             </article>

@@ -201,6 +201,17 @@ describe('Nexus dashboard truthful state and local operations',()=>{
     expect(screen.getByText(/Receipt b1/)).toBeTruthy()
   })
 
+  it('distinguishes import and integrity results when both are displayed',async()=>{
+    await ready(); await tab('Import History'); await chooseFixture()
+    submitImport()
+    await waitFor(()=>expect(screen.getByRole('status').textContent).toContain('保存 1000件'))
+    await tab('Overview')
+    await userEvent.click(screen.getByRole('button',{name:'Check stored data integrity'}))
+    await waitFor(()=>expect(screen.getAllByRole('status')).toHaveLength(2))
+    expect(screen.getByRole('status',{name:'Import result'}).textContent).toContain('保存 1000件')
+    expect(screen.getByRole('status',{name:'Stored data integrity'}).textContent).toContain('整合性: PASS')
+  })
+
   it('validates without implying persistence or refreshing stored counts',async()=>{
     await ready(); await tab('Import History'); await chooseFixture()
     const before=fetchMock.mock.calls.filter(([input])=>urlOf(input).pathname==='/api/v1/overview').length

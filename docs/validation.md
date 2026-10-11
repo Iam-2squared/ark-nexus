@@ -41,4 +41,6 @@ First expanded-CI run 38118124755 at adbb95b15b5c6e03a5f424a5e4b1d7afbecbbaf5 fa
 
 The integrity-check UI also retained an unlocked snapshot after a 401; a failing DOM reproduction was added before routing that error through the shared lock/clear handler. Each new integrity check clears its previous result before requesting fresh evidence.
 
+Run 38118467273 at 9355166c61d17c04e8a1c40b64e50d2c325dc941 confirmed the ZIP-case-name fix and real Windows NTFS-junction rejection, but still failed 3/5 jobs. Windows raises EACCES for an exclusive-open directory, so the non-file check now precedes opening as well as handling EEXIST. Chromium reached the integrity result after completing Japanese search/pagination; its generic status locator was ambiguous with the retained import receipt result. Distinct accessible result labels and a failing combined-result DOM reproduction preserve both expected result assertions. No result count, browser timeout or abnormal-input gate was reduced.
+
 V1 official PASS stays **BLOCKED** until the actual-format and remaining private-data security gates pass. Do not report a percentage without a separately agreed gate-weighting method.

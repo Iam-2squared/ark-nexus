@@ -20,6 +20,9 @@ def local_access_key(directory: Path) -> str:
     if configured is not None:
         return valid_key(configured)
     path = checked_path(directory / "nexus-access.key")
+    # Windows reports EACCES, rather than EEXIST, when O_EXCL targets a directory.
+    if path.exists() and not path.is_file():
+        raise ValueError("Local access key path must be a file")
     try:
         descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     except FileExistsError:
