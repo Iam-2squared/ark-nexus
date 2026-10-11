@@ -48,3 +48,32 @@ def test_corrupt_archive_metadata_is_safely_rejected(kind):
         struct.pack_into("<I", payload, central + 16, 0)
     with pytest.raises(ImportProblem):
         safe_json_payload(bytes(payload), "bad.zip")
+
+
+@pytest.mark.parametrize("kind,compression", [
+    ("deflate", zipfile.ZIP_DEFLATED),
+    ("lzma", zipfile.ZIP_LZMA),
+    ("bzip2", zipfile.ZIP_BZIP2),
+])
+def test_corrupt_compressed_stream_is_rejected_without_any_records(client, kind, compression):
+    fixture = json.dumps({"nexus_fixture": "synthetic-v1", "provider": "chatgpt",
+                          "conversations": []})
+    payload = bytearray(archive([("fixture.json", fixture)], compression))
+    name_length, extra_length = struct.unpack_from("<HH", payload, 26)
+    start = 30 + name_length + extra_length
+    if kind == "deflate":
+        payload[start] = (payload[start] & ~6) | 6  # Reserved DEFLATE block type.
+    elif kind == "lzma":
+        payload[start + 4:start + 9] = b"\xff" * 5  # Invalid LZMA properties.
+    else:
+        payload[start:start + 3] = b"BAD"  # Invalid BZip2 signature.
+    with pytest.raises(ImportProblem, match="Invalid ZIP archive"):
+        safe_json_payload(bytes(payload), "bad-stream.zip")
+    response = client.post("/api/v1/imports", data={"provider": "chatgpt", "account_alias": "test"},
+                           files={"file": ("bad-stream.zip", bytes(payload), "application/zip")})
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Invalid ZIP archive"}
+    assert client.get("/api/v1/overview").json()["counts"] == {
+        "sources": 0, "conversations": 0, "messages": 0, "projects": 0, "imports": 0,
+    }
+    assert client.get("/api/v1/imports").json()["items"] == []

@@ -3,9 +3,11 @@
 import hashlib
 import io
 import json
+import lzma
 import re
 import stat
 import zipfile
+import zlib
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import PurePosixPath
@@ -110,7 +112,8 @@ def safe_json_payload(blob: bytes, filename: str) -> bytes:
             if len(data) > MAX_UNCOMPRESSED_BYTES:
                 raise ImportProblem("ZIP JSON is too large")
             return data
-    except (zipfile.BadZipFile, RuntimeError, EOFError, OSError, NotImplementedError) as exc:
+    except (zipfile.BadZipFile, RuntimeError, EOFError, OSError, NotImplementedError,
+            zlib.error, lzma.LZMAError) as exc:
         raise ImportProblem("Invalid ZIP archive") from exc
 
 
