@@ -1,11 +1,11 @@
 """Offline backup/restore-to-new-location. Never overwrite or delete existing user data."""
 
-import argparse
 import sqlite3
 import sys
 from contextlib import closing
 from pathlib import Path
 
+from nexus.cli import PrivateArgumentParser
 from nexus.integrity import inspect_integrity
 from nexus.private_storage import checked_database_path, prepare_database
 
@@ -36,7 +36,7 @@ def copy_database(source: Path, destination: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Copy a Nexus database to a new private path")
+    parser = PrivateArgumentParser(description="Copy a Nexus database to a new private path")
     parser.add_argument("source", type=Path)
     parser.add_argument("destination", type=Path)
     args = parser.parse_args()

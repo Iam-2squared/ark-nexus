@@ -1,6 +1,5 @@
 """Local synthetic evidence. No account access, network reconfiguration or private profiles."""
 
-import argparse
 import http.client
 import json
 import os
@@ -14,6 +13,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from nexus.cli import PrivateArgumentParser
 from nexus.maintenance import copy_database
 from nexus.private_storage import checked_path
 from nexus.store import Store
@@ -243,7 +243,7 @@ def run_probe(repo: Path, root: Path, report: dict, offline_attested: bool = Fal
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="New-directory synthetic local evidence only")
+    parser = PrivateArgumentParser(description="New-directory synthetic local evidence only")
     parser.add_argument("--offline-attested", action="store_true")
     args = parser.parse_args()
     try:
