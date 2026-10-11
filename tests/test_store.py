@@ -3,7 +3,7 @@ from nexus.store import Store
 
 def test_migration_is_repeatable(tmp_path):
     path = tmp_path / "nexus.sqlite3"
-    one = Store(path)
+    Store(path)
     two = Store(path)
     with two.connect() as db:
         assert db.execute("SELECT count(*) FROM schema_migrations").fetchone()[0] == 1
