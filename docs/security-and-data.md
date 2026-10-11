@@ -25,7 +25,7 @@ Imports and migrations acquire a write transaction before identity/schema checks
 
 Default database: Windows LOCALAPPDATA/ARK-Nexus/nexus.sqlite3; Linux ~/.local/share/ark-nexus/nexus.sqlite3. NEXUS_DATA_DIR can override it. Module import creates no profile database; server startup does. Development tests use synthetic data in isolated temporary directories.
 
-Database/key paths containing symlinks, NTFS junctions or hard links are rejected before writing. Existing access-key paths must be regular files and contain at most 256 token characters with only an optional LF/CRLF ending; malformed files are rejected without echoing contents or changing directory permissions. New POSIX directories/files use 0700/0600. Windows inherits the account directory's ACL; POSIX mode assertions do not verify Windows ACL behavior. SQLite storage is plaintext. Encryption/full-disk protection and shared-machine access decisions remain an explicit private-data gate.
+Database/key paths containing symlinks, NTFS junctions or hard links are rejected before writing. SQLite main/-journal/-wal/-shm paths are rechecked before each Store connection; other Windows reparse points are rejected too. Existing POSIX storage parents/files must be owner-only; shared permissions are refused without changing the existing directory. New POSIX directories/files use 0700/0600. Existing access-key paths must be regular files and contain at most 256 token characters with only an optional LF/CRLF ending; malformed files are rejected without echoing contents or changing directory permissions. Windows application storage still inherits its directory ACL; the new probe protects only a new owned synthetic directory. POSIX mode assertions do not verify Windows ACL behavior. SQLite storage is plaintext. See [retention/deletion/encryption design](retention-and-deletion-design.md).
 
 Retention is indefinite until the owner requests deletion. There is no HTTP deletion endpoint, scheduled cleanup or source-deletion propagation. Destructive removal or replacing an existing database requires separate explicit authorization. Raw uploaded archives, filenames and message payloads are not stored in audit entries. Successful import receipts preserve batch hashes/counts/version/source; rejected input is not retained as payload or a successful receipt.
 
@@ -37,12 +37,14 @@ Use the SQLite backup API for a consistent offline copy:
 
     python -m nexus.maintenance SOURCE_DATABASE NEW_DESTINATION_DATABASE
 
-The command refuses an existing destination, checks SQLite integrity, and does not overwrite the source. The same command can restore a backup to a *new* location. Confirm stored-record integrity and counts before explicitly choosing that restored path for a future server start. This does not automatically switch the running application.
+The command refuses an existing destination or orphan destination sidecars, checks SQLite/FK/FTS/content-hash integrity in one source read snapshot and again in the copy, and does not overwrite the source. Both SQLite connections close before failure cleanup; only the new destination with its original file identity can be removed. CLI errors use a fixed message without private paths or traceback. The same command can restore a backup to a *new* location. Confirm stored-record integrity and counts before explicitly choosing that restored path for a future server start. This does not automatically switch the running application.
+
+The local owner controls the private directory; path checks are not a defense against a privileged or same-user process racing filesystem changes. A portable path policy rejects Windows ADS colons, reserved device names, ambiguous trailing dots/spaces and UNC/device volumes. Windows regular runtime DACL hardening and short-name/network-filesystem behavior have not been qualified. Do not use a shared, network or synchronized folder for private profiles/backups. An isolated probe is not approval of the default profile.
 
 ## Remaining gates
 
 - Owner-approved real-format samples from both providers: BLOCKED.
 - Per-user bearer authentication is implemented and regression-tested; owner-machine key-directory ACLs and hostile same-user process risks still require review.
-- Windows filesystem ACL evidence: unverified.
+- Windows synthetic-directory DACL/listener probe: implemented; new-HEAD Windows CI evidence required. Owner-machine and private-profile ACL evidence remain NOT RUN. See [Windows guide](windows-machine-validation.md).
 - Local Chromium execution could not start because the download failed. Actual API/UI browser tests are added to GitHub Actions and must pass at the new HEAD. Owner-machine Windows/browser/offline cold startup remains unverified.
 - Large real exports, attachments, branch/revision semantics, background sync and encrypted storage: not implemented.

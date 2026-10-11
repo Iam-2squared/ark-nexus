@@ -53,3 +53,6 @@ A second run requires a fresh dedicated tmp/e2e-data test directory because firs
 Public repo: **do not commit actual chats, archives, keys, credentials or databases**.
 
 See [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), [capabilities](docs/capability-matrix.md), [format gate](docs/provider-format-validation.md), [security/data policy](docs/security-and-data.md), and [fixed evaluations](docs/validation.md).
+## Windows実機・実形式の検証準備
+
+[Windows実機検証手順](docs/windows-machine-validation.md)に、合成データだけを使うローカルprobeと手動Gateを記載しています。ユーザーPCはNOT RUN、ChatGPT/Claude実形式はBLOCKED、V1公式判定はBLOCKEDです。[実形式の受入れ手順](docs/real-format-acceptance.md)と[保持・削除・暗号化設計](docs/retention-and-deletion-design.md)も参照してください。実際の会話・DB・キーを公開GitHubへ追加しないでください。

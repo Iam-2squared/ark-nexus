@@ -46,3 +46,15 @@ Run 38118467273 at 9355166c61d17c04e8a1c40b64e50d2c325dc941 confirmed the ZIP-ca
 Run 38118614549 at 172be9d09efc3f58febccb88e94b61562f162028 passed all 5 jobs, including 2 actual Chromium scenarios, 16 DOM tests, build and all four backend environments (120 passed plus one platform-specific skip each). Independent synthetic-input audit then reproduced unhandled zlib.error and LZMAError for corrupt compressed ZIP streams. New DEFLATE/LZMA/BZip2 regression cases require generic HTTP 422 and zero stored sources/conversations/messages/import receipts. Decompression errors are converted to ImportProblem before any store operation; the follow-up HEAD must receive its own CI evidence.
 
 V1 official PASS stays **BLOCKED** until the actual-format and remaining private-data security gates pass. Do not report a percentage without a separately agreed gate-weighting method.
+
+## 2026-10-11 continuation: additive security and machine evidence
+
+Start-of-run re-read: main 91a493a9ffb636c85b016874f1f721685adab12e; only open Draft #1, branch feature/v1-unified-history-scaffold, HEAD 4c72225a24a0fbc187b565bbb7063006d7734b6a. No reviews/comments. Run 38118765644 passed 5/5: each backend 123 passed + 1 platform-specific skip; DOM16/build/Chromium2 passed. These are historical facts, not evidence for the follow-up HEAD.
+
+Additive failing reproductions covered SQLite hardlinked sidecars, unclosed copy connections, logically corrupt FTS accepted as a backup, CLI traceback/path exposure, shared POSIX storage directories, nonportable Windows ADS/device/alias names, JSON exponent overflow, and late UI responses after locking/unlocking. The fixes preserve the original fixtures, initial migration, 1,000-message reimport, fixed30 + additive30 search expectations and original16 DOM/2 Chromium scenarios.
+
+The new synthetic machine probe runs real child-process cold starts/restarts/restored-path API checks, auth/Host/Origin/CSRF, Japanese import/search/reimport, and Windows-only owned listener/DACL inspection. Evidence is allowlisted JSON; test profile, DB/key and private sentinel inputs cannot enter logs/artifacts. Windows uses only a new owned empty test directory for ACL changes. Linux skips Windows DACL/listener *subchecks* inside the probe; those differ from pytest skips. New POSIX shared-directory regression is additionally skipped on Windows.
+
+Run user-machine verification using [the Windows guide](windows-machine-validation.md). No user PC has been accessed. Actual owner Windows/offline/browser/other-user/private-profile gates remain NOT RUN; actual ChatGPT/Claude samples remain BLOCKED. A fabricated offline flag in GitHub Actions cannot promote the owner-machine Gate. Real parser contracts/tests are disabled scaffolding, not real-format PASS.
+
+Local Linux/Python3.12: 150 passed + 1 NTFS-only skip; Ruff PASS. DOM20 and TypeScript/Vite build PASS. Current-HEAD GitHub results must be verified before reporting all-environment PASS. The continuation report is recorded in the Draft PR rather than assigning a percentage. Retention/deletion/encryption remain [documented and inactive](retention-and-deletion-design.md).

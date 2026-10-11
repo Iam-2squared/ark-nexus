@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from nexus import __version__
 from nexus.access import local_access_key
+from nexus.adapter_contracts import real_format_gates
 from nexus.connectors import connection_catalog
 from nexus.importers import (
     MAX_UPLOAD_BYTES,
@@ -22,6 +23,7 @@ from nexus.importers import (
     safe_json_payload,
     validate_account_alias,
 )
+from nexus.private_storage import PrivateStorageError
 from nexus.security import LocalBoundary
 from nexus.settings import database_path
 from nexus.store import Store
@@ -61,6 +63,8 @@ def create_app(path: Path | None = None) -> FastAPI:
         return JSONResponse({"detail": "Invalid request fields"}, status_code=422)
 
     @app.exception_handler(sqlite3.Error)
+    @app.exception_handler(PrivateStorageError)
+    @app.exception_handler(OSError)
     async def storage_error(_request, _exc):
         return JSONResponse({"detail": "Local storage unavailable"}, status_code=503)
 
@@ -91,6 +95,7 @@ def create_app(path: Path | None = None) -> FastAPI:
     def sources():
         return {"items": app.state.store.sources(),
                 "available_importers": ["chatgpt:synthetic-v1", "claude:synthetic-v1"],
+                "real_format_adapters": real_format_gates(),
                 "limitations": "No live chat synchronization; real export parsing not validated"}
 
     @app.post("/api/v1/imports", status_code=201)

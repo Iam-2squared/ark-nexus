@@ -120,4 +120,18 @@ class DisabledConnector:
 
 
 def connection_catalog() -> list[dict]:
-    return [asdict(item) for item in CATALOG]
+    products = {"chatgpt": ("openai", "consumer_chatgpt"),
+                "claude": ("anthropic", "consumer_claude"),
+                "chatgpt_work": ("openai", "chatgpt_work"),
+                "codex_local": ("openai", "codex_local"),
+                "codex_cloud": ("openai", "codex_cloud"),
+                "claude_code": ("anthropic", "claude_code")}
+    return [{**asdict(item), "provider": products[item.id][0], "product": products[item.id][1],
+             "capabilities": {
+                 "manual_export": "documented" if item.id in {"chatgpt", "claude"} else "not_verified",
+                 "event_monitor": "documented" if item.id in {"codex_local", "claude_code"}
+                 else "not_verified", "dispatch_new": item.official.dispatch_new,
+                 "resume_existing": item.official.resume_existing},
+             "not_connected_reason": "Approved real-format sample not provided"
+             if item.id in {"chatgpt", "claude"} else "Nexus V1 connector is not implemented",
+             "freshness": "no_observations", "checked_at": "2026-10-11"} for item in CATALOG]

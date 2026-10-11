@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import lzma
+import math
 import re
 import stat
 import zipfile
@@ -142,6 +143,13 @@ def invalid_constant(_value):
     raise ImportProblem("Non-finite JSON numbers are not accepted")
 
 
+def finite_float(value):
+    number = float(value)
+    if not math.isfinite(number):
+        invalid_constant(value)
+    return number
+
+
 def source_timestamp(value: object) -> str | None:
     if value is None:
         return None
@@ -167,7 +175,7 @@ def _load_fixture(blob: bytes, adapter: SyntheticAdapter) -> list[Conversation]:
         raise ImportProblem("JSON exceeds the 32 MiB safety limit")
     try:
         data = json.loads(blob.decode("utf-8-sig"), object_pairs_hook=strict_object,
-                          parse_constant=invalid_constant)
+                          parse_constant=invalid_constant, parse_float=finite_float)
     except (UnicodeError, json.JSONDecodeError, RecursionError, ValueError) as exc:
         if isinstance(exc, ImportProblem):
             raise

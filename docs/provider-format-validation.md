@@ -2,6 +2,8 @@
 
 Checked: 2026-10-11. Both real-format validation gates are **BLOCKED** because no owner-approved, anonymized, secret-free sample was supplied for this Nexus task.
 
+The [real-format acceptance procedure](real-format-acceptance.md) now specifies minimal owner input, graph/ID/time-safe anonymization, explicit Provider/Product contracts, revision/versioning rules and disabled parser test scaffolding. It does not add a real-format parser or authorize sample transfer.
+
 | Provider | Official export information verified | Message schema verified in Nexus | Import behavior |
 |---|---|---|---|
 | ChatGPT | Official settings/privacy-request ZIP export includes chat/account data [1] | None for real exports | Accept only nexus_fixture=synthetic-v1 with provider=chatgpt |

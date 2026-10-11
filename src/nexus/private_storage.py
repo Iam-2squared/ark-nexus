@@ -1,30 +1,77 @@
 """Conservative paths and owner-only POSIX database files."""
 
 import os
+import re
+import stat
 from pathlib import Path
+
+
+class PrivateStorageError(ValueError):
+    """A fixed, path-free boundary failure suitable for generic API handling."""
 
 
 def checked_path(value: Path) -> Path:
     path = value.expanduser().absolute()
+    # One portable policy: Windows must not reinterpret a path as ADS/device/alias.
+    names = (candidate.name for candidate in (path, *path.parents) if candidate.name)
+    if any(re.search(r'[<>:"|?*\\\x00-\x1f]', name) or name.endswith((".", " "))
+           or re.fullmatch(r"(?i)(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\..*)?", name)
+           for name in names):
+        raise PrivateStorageError("Private database paths must use portable file names")
+    if path.drive.startswith("\\\\"):
+        raise PrivateStorageError("Private database paths must use a local volume")
     if any(candidate.is_symlink() for candidate in (path, *path.parents)):
-        raise ValueError("Private database paths must not contain a symlink")
+        raise PrivateStorageError("Private database paths must not contain a symlink")
     if any(candidate.is_junction() for candidate in (path, *path.parents)):
-        raise ValueError("Private database paths must not contain a junction")
+        raise PrivateStorageError("Private database paths must not contain a junction")
+    if os.name == "nt" and any(
+        candidate.exists() and candidate.stat(follow_symlinks=False).st_file_attributes
+        & stat.FILE_ATTRIBUTE_REPARSE_POINT for candidate in (path, *path.parents)
+    ):
+        raise PrivateStorageError("Private database paths must not contain a reparse point")
     if path.exists() and path.is_file() and path.stat().st_nlink > 1:
-        raise ValueError("Private database paths must not use hard links")
+        raise PrivateStorageError("Private database paths must not use hard links")
+    return path
+
+
+def checked_database_path(value: Path) -> Path:
+    """SQLite can read/write these siblings even when its main file is safe."""
+    path = checked_path(value)
+    if path.parent.exists():
+        if not path.parent.is_dir():
+            raise PrivateStorageError("Private database parent must be a directory")
+        if os.name != "nt":
+            metadata = path.parent.stat()
+            if metadata.st_uid != os.getuid() or metadata.st_mode & 0o077:
+                raise PrivateStorageError("Private database directory must be owner-only")
+    for candidate in (path, *(Path(str(path) + suffix)
+                              for suffix in ("-journal", "-wal", "-shm"))):
+        checked_path(candidate)
+        if candidate.exists():
+            if not candidate.is_file():
+                raise PrivateStorageError("Private database files must be regular files")
+            if os.name != "nt":
+                metadata = candidate.stat()
+                if metadata.st_uid != os.getuid() or metadata.st_mode & 0o077:
+                    raise PrivateStorageError("Private database files must be owner-only")
     return path
 
 
 def prepare_database(value: Path, *, exclusive: bool = False) -> Path:
-    path = checked_path(value)
+    path = checked_database_path(value)
+    if exclusive and any(Path(str(path) + suffix).exists()
+                         for suffix in ("-journal", "-wal", "-shm")):
+        raise PrivateStorageError("New database destination must have no existing sidecars")
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    checked_database_path(path)
     try:
-        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_RDWR, 0o600)
+        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_RDWR
+                             | getattr(os, "O_NOFOLLOW", 0), 0o600)
     except FileExistsError:
         if exclusive:
             raise
         if not path.is_file():
-            raise ValueError("Private database path must be a file") from None
+            raise PrivateStorageError("Private database path must be a file") from None
     else:
         os.close(descriptor)
     if os.name != "nt":

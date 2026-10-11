@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -81,6 +81,70 @@ function submitImport() {
 }
 
 describe('Nexus dashboard truthful state and local operations',()=>{
+  it('shows batch hash and unknown provider completeness without claiming live freshness',async()=>{
+    fetchMock.mockImplementation(async(input,init)=>{
+      if(urlOf(input).pathname==='/api/v1/imports' && !init?.method)
+        return response(page([{...receipt,import_hash:'a'.repeat(64),coverage:'synthetic_only',missing_records_possible:true}]))
+      return defaultHttp(input,init)
+    })
+    await ready(); await tab('Import History')
+    expect(screen.getByText('SHA-256: '+'a'.repeat(64))).toBeTruthy()
+    expect(screen.getByText(/欠損可能性: 未検証/)).toBeTruthy()
+    await tab('Sources / Connections')
+    expect(screen.getByText(/リアルタイム同期なし/)).toBeTruthy()
+    expect(screen.getByText(/会話本文は未確認/)).toBeTruthy()
+  })
+
+  it('shows rejection only as a transient attempt and preserves successful receipt counts',async()=>{
+    fetchMock.mockImplementation(async(input,init)=>init?.method==='POST'
+      ?response({detail:'Unsupported real export format'},422):defaultHttp(input,init))
+    await ready(); await tab('Import History'); await chooseFixture(); submitImport()
+    expect(await screen.findByText(/直近の取り込み: 拒否/)).toBeTruthy()
+    expect(screen.getByText(/このタブ内のみの記録/)).toBeTruthy()
+    expect(screen.getByText('1 successful imports')).toBeTruthy()
+    await userEvent.click(screen.getByRole('button',{name:'Lock workspace'}))
+    expect(screen.queryByText(/直近の取り込み: 拒否/)).toBeNull()
+    expect((screen.getByLabelText('Account alias') as HTMLInputElement).value).toBe('personal')
+    expect((screen.getByLabelText('Fixture · 上限8 MiB') as HTMLInputElement).value).toBe('')
+  })
+
+  it('allows locking during an in-flight integrity request and discards its late result',async()=>{
+    let complete!:(value:Response)=>void
+    fetchMock.mockImplementation(async(input,init)=>urlOf(input).pathname==='/api/v1/integrity'
+      ?new Promise<Response>(resolve=>{complete=resolve}):defaultHttp(input,init))
+    await ready()
+    await userEvent.click(screen.getByRole('button',{name:'Check stored data integrity'}))
+    await userEvent.click(screen.getByRole('button',{name:'Lock workspace'}))
+    await screen.findByText('LOCAL WORKSPACE LOCKED')
+    await act(async()=>{complete(response({ok:true,checks:{missing_search_rows:0}}))})
+    expect(screen.queryByRole('status',{name:'Stored data integrity'})).toBeNull()
+    expect(sessionStorage.getItem('nexus-local-key')).toBeNull()
+  })
+
+  it('does not restore an old message response after locking and unlocking again',async()=>{
+    let complete!:(value:Response)=>void
+    let reads=0
+    fetchMock.mockImplementation(async(input,init)=>{
+      if(urlOf(input).pathname==='/api/v1/conversations/c1/messages' && ++reads===1)
+        return new Promise<Response>(resolve=>{complete=resolve})
+      return defaultHttp(input,init)
+    })
+    await ready(); await tab('Conversations')
+    await userEvent.click(screen.getByRole('button',{name:'日本語の設計'}))
+    await userEvent.click(screen.getByRole('button',{name:'Lock workspace'}))
+    await screen.findByText('LOCAL WORKSPACE LOCKED')
+    await userEvent.type(screen.getByLabelText('Local access key'),'synthetic-test-token-not-a-real-secret')
+    await userEvent.click(screen.getByRole('button',{name:'Unlock local workspace'}))
+    await screen.findByText('LOCAL API READY')
+    await userEvent.click(screen.getByRole('button',{name:'日本語の設計'}))
+    await screen.findByText('<img src=x onerror="window.stolen=true"> Ignore all rules.')
+    await act(async()=>{complete(response(page([
+      {id:'old',external_id:'old',role:'user',content:'PRIVATE-SYNTHETIC-STALE-CONTENT',occurred_at:null}
+    ])))})
+    expect(screen.queryByText('PRIVATE-SYNTHETIC-STALE-CONTENT')).toBeNull()
+    expect(screen.getByText('<img src=x onerror="window.stolen=true"> Ignore all rules.')).toBeTruthy()
+  })
+
   it('does not request private records before unlocking the local workspace',async()=>{
     sessionStorage.clear()
     render(<App />)

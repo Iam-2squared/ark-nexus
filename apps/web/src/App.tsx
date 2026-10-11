@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 
 type PageData<T> = {items:T[]; total:number; offset:number; next_offset:number|null}
-type Source = {id:string; provider:string; account_alias:string; connection_state:string; data_kind:string; last_sync_at:string|null}
+type Source = {id:string; provider:string; account_alias:string; connection_state:string; data_kind:string; last_sync_at:string|null; freshness?:string; not_connected_reason?:string}
 type Conversation = {id:string; title:string; provider:string; account_alias:string; message_count:number; external_id:string; project_id:string|null}
 type Project = {id:string; name:string; conversation_count:number}
 type Hit = {message_id:string; external_message_id:string; provider:string; account_alias:string; title:string; content:string; occurred_at:string|null}
 type Message = {id:string; external_id:string; role:string; content:string; occurred_at:string|null}
 type Counts = {sources:number; conversations:number; messages:number; projects:number; imports:number}
 type ImportCounts = {messages_inserted:number; messages_duplicates:number}
-type Receipt = {id:string; provider:string; account_alias:string; started_at:string; counts:ImportCounts; parser_version:string; data_kind:string; status:string}
+type Receipt = {id:string; provider:string; account_alias:string; started_at:string; counts:ImportCounts; parser_version:string; data_kind:string; status:string; import_hash?:string; coverage?:string; missing_records_possible?:boolean}
 type ImportResult = {status:string; counts?:ImportCounts; conversations?:number; messages?:number; persisted?:boolean}
-type Connection = {id:string; label:string; connection_state:string; implemented:boolean; execution_enabled:boolean; official:Record<string,string>; obtainable:string; latency:string; permissions:string}
+type Connection = {id:string; label:string; connection_state:string; implemented:boolean; execution_enabled:boolean; official:Record<string,string>; obtainable:string; latency:string; permissions:string; provider?:string; product?:string; capabilities?:Record<string,string>; not_connected_reason?:string}
 type Page = 'overview'|'search'|'conversations'|'projects'|'connections'|'imports'
 const emptyPage = <T,>():PageData<T> => ({items:[],total:0,offset:0,next_offset:null})
 
@@ -62,6 +62,7 @@ export default function App() {
   const [projectName,setProjectName] = useState('')
   const [notice,setNotice] = useState('')
   const [result,setResult] = useState<ImportResult|null>(null)
+  const [rejected,setRejected] = useState<{provider:string; at:string; status:number|null}|null>(null)
   const [busy,setBusy] = useState(false)
   const [loading,setLoading] = useState(true)
   const [apiState,setApiState] = useState<'loading'|'ready'|'unavailable'|'locked'>('loading')
@@ -72,19 +73,26 @@ export default function App() {
   const [integrity,setIntegrity] = useState<{ok:boolean; checks:Record<string,number>}|null>(null)
   const searchRun = useRef(0)
   const loadRun = useRef(0)
+  const sessionRun = useRef(0)
+  const fileInput = useRef<HTMLInputElement>(null)
 
   function lockWorkspace() {
     loadRun.current++; searchRun.current++
+    sessionRun.current++
     sessionStorage.removeItem('nexus-local-key')
     setApiState('locked'); setLoading(false); setBusy(false)
     setCounts(null); setSources([]); setConvos(emptyPage()); setProjects([])
     setConnections([]); setImports(emptyPage()); setHits(emptyPage()); setSearchParams(null)
     setSearchStatus('idle'); setSelected(null); setMessages(null); setResult(null)
-    setIntegrity(null); setUpdatedAt(null)
+    setIntegrity(null); setUpdatedAt(null); setRejected(null); setNotice('')
+    setQuery(''); setSourceFilter(''); setProjectFilter(''); setProjectName('')
+    setAlias('personal'); setFile(null); setDryRun(false); setAccessInput('')
+    if(fileInput.current) fileInput.current.value=''
   }
 
   async function unlock(event:FormEvent) {
     event.preventDefault(); setNotice('')
+    sessionRun.current++
     sessionStorage.setItem('nexus-local-key',accessInput.trim())
     setAccessInput('')
     await reload()
@@ -126,6 +134,7 @@ export default function App() {
   async function importFile(event:FormEvent) {
     event.preventDefault()
     if (!file) return
+    const session = sessionRun.current
     setBusy(true); setNotice(''); setResult(null)
     try {
       if (file.size > 8*1024*1024) throw new Error('ファイル上限は8 MiBです。')
@@ -133,10 +142,17 @@ export default function App() {
       form.set('provider',provider); form.set('account_alias',alias)
       form.set('file',file); form.set('dry_run',String(dryRun))
       const response = await api<ImportResult>('/imports',{method:'POST',body:form})
+      if(session!==sessionRun.current) return
       setResult(response)
       if (response.status!=='dry_run') { setSelected(null); setMessages(null); await reload() }
-    } catch (err) { reportError(err) }
-    finally { setBusy(false) }
+    } catch (err) {
+      if(session===sessionRun.current) {
+        if(!(err instanceof ApiError && err.status===401))
+          setRejected({provider,at:new Date().toISOString(),status:err instanceof ApiError?err.status:null})
+        reportError(err)
+      }
+    }
+    finally { if(session===sessionRun.current) setBusy(false) }
   }
 
   async function runSearch(params:URLSearchParams, append=false) {
@@ -167,58 +183,72 @@ export default function App() {
   }
 
   async function addProject(event:FormEvent) {
+    const session = sessionRun.current
     event.preventDefault(); setBusy(true); setNotice('')
     try {
       await api('/projects', {method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({name:projectName.trim()})})
+      if(session!==sessionRun.current) return
       setProjectName(''); await reload()
-    } catch (err) { reportError(err) }
-    finally { setBusy(false) }
+    } catch (err) { if(session===sessionRun.current) reportError(err) }
+    finally { if(session===sessionRun.current) setBusy(false) }
   }
   async function mapProject(id:string,projectId:string) {
+    const session = sessionRun.current
     setBusy(true); setNotice('')
     try {
       await api('/conversations/' + encodeURIComponent(id), {
         method:'PATCH',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({project_id:projectId || null})
       })
+      if(session!==sessionRun.current) return
       await reload()
-    } catch (err) { reportError(err) }
-    finally { setBusy(false) }
+    } catch (err) { if(session===sessionRun.current) reportError(err) }
+    finally { if(session===sessionRun.current) setBusy(false) }
   }
 
   async function moreConversations() {
     if (convos.next_offset===null) return
+    const session = sessionRun.current
     setBusy(true)
     try {
       const response = await api<PageData<Conversation>>('/conversations?offset='+convos.next_offset)
+      if(session!==sessionRun.current) return
       setConvos(previous => ({...response,items:[...previous.items,...response.items]}))
-    } catch (err) { reportError(err) }
-    finally { setBusy(false) }
+    } catch (err) { if(session===sessionRun.current) reportError(err) }
+    finally { if(session===sessionRun.current) setBusy(false) }
   }
   async function openConversation(conversation:Conversation, offset=0) {
+    const session = sessionRun.current
     setBusy(true); setNotice(''); setSelected(conversation)
     if (!offset) setMessages(null)
     try {
       const response = await api<PageData<Message>>('/conversations/'+encodeURIComponent(conversation.id)+'/messages?offset='+offset)
+      if(session!==sessionRun.current) return
       setMessages(previous => offset && previous ? {...response,items:[...previous.items,...response.items]} : response)
-    } catch (err) { reportError(err) }
-    finally { setBusy(false) }
+    } catch (err) { if(session===sessionRun.current) reportError(err) }
+    finally { if(session===sessionRun.current) setBusy(false) }
   }
   async function moreImports() {
     if (imports.next_offset===null) return
+    const session = sessionRun.current
     setBusy(true)
     try {
       const response = await api<PageData<Receipt>>('/imports?offset='+imports.next_offset)
+      if(session!==sessionRun.current) return
       setImports(previous => ({...response,items:[...previous.items,...response.items]}))
-    } catch (err) { reportError(err) }
-    finally { setBusy(false) }
+    } catch (err) { if(session===sessionRun.current) reportError(err) }
+    finally { if(session===sessionRun.current) setBusy(false) }
   }
   async function checkIntegrity() {
+    const session = sessionRun.current
     setBusy(true); setNotice(''); setIntegrity(null)
-    try { setIntegrity(await api('/integrity')) }
-    catch (err) { reportError(err) }
-    finally { setBusy(false) }
+    try {
+      const response = await api<{ok:boolean; checks:Record<string,number>}>('/integrity')
+      if(session===sessionRun.current) setIntegrity(response)
+    }
+    catch (err) { if(session===sessionRun.current) reportError(err) }
+    finally { if(session===sessionRun.current) setBusy(false) }
   }
 
   const importer = <article className="panel">
@@ -229,7 +259,7 @@ export default function App() {
         <option value="chatgpt">ChatGPT synthetic</option><option value="claude">Claude synthetic</option>
       </select></label>
       <label>Account alias<input value={alias} onChange={e=>setAlias(e.target.value)} maxLength={100} required /></label>
-      <label>Fixture · 上限8 MiB<input type="file" accept=".json,.zip" onChange={e=>setFile(e.target.files?.[0]||null)} required /></label>
+      <label>Fixture · 上限8 MiB<input ref={fileInput} type="file" accept=".json,.zip" onChange={e=>setFile(e.target.files?.[0]||null)} required /></label>
       <label className="checkbox"><input type="checkbox" checked={dryRun} onChange={e=>setDryRun(e.target.checked)} />保存せず形式を検証</label>
       <button className="primary" disabled={busy||!file||apiState!=='ready'}>{dryRun?'Validate fixture':'Import fixture'}</button>
     </form>
@@ -265,7 +295,7 @@ export default function App() {
         <div className="snapshot"><span>{loading?'取得中…':updatedAt?'取得時刻: '+time(updatedAt):'データ未取得'}
           {apiState==='unavailable' && updatedAt?' · 前回取得時の表示':''}</span>
           <div className="snapshotactions"><button type="button" className="secondary" disabled={loading||busy||apiState==='locked'} onClick={()=>void reload()}>Refresh</button>
-            {apiState!=='locked' && <button type="button" className="secondary" disabled={loading||busy} onClick={lockWorkspace}>Lock workspace</button>}</div>
+            {apiState!=='locked' && <button type="button" className="secondary" onClick={lockWorkspace}>Lock workspace</button>}</div>
         </div>
 
         {page==='overview' && <>
@@ -333,10 +363,15 @@ export default function App() {
         {page==='connections' && <>
           <article className="panel"><h2>登録済みSource</h2>
             {sources.length===0?<p>{counts?'未登録':'データ未取得'}</p>:sources.map(s=><div className="line" key={s.id}><b>{s.provider} · {s.account_alias}</b><span>手動取り込み / 合成</span><small>最終取り込み: {time(s.last_sync_at)}</small></div>)}
+            <p>取得範囲: 合成データの手動スナップショット。リアルタイム同期なし。</p>
+            {sources.map(s=><p className="muted" key={s.id}>{s.account_alias}: {s.not_connected_reason || '実形式Adapterと自動同期は未接続'}</p>)}
           </article>
           <section className="panels">{connections.map(c=><article className="panel" key={c.id}><h2>{c.label}<span className="chip">未接続</span></h2>
             <p>{c.id==='chatgpt'||c.id==='claude'?'Nexus: 合成取り込みのみ実装。実形式検証はBLOCKED。':'Nexus: Connector未実装 / AI実行無効。'}</p>
-            <p>公式手段の調査: {c.official.history==='documented'?'履歴取得あり':c.official.history==='manual_export'?'手動エクスポート':'未確認'}</p>
+            <p>公式手段の調査: {c.id==='codex_cloud'?'タスクのメタデータ取得あり（会話本文は未確認）':c.official.history==='documented'?'履歴取得あり':c.official.history==='manual_export'?'手動エクスポート':'未確認'}</p>
+            <p>Provider / Product: {c.provider || '未提供'} / {c.product || c.id}</p>
+            <p>未接続理由: {c.not_connected_reason || 'Nexusでの接続は未実装'}</p>
+            {c.capabilities && <p>手動export: {c.capabilities.manual_export} · イベント監視: {c.capabilities.event_monitor} · 新規タスク: {c.capabilities.dispatch_new} · 再開: {c.capabilities.resume_existing}</p>}
             <p className="muted">{c.obtainable}</p><p className="muted">同期遅延: {c.latency}</p>
             <details><summary>必要権限・条件</summary><p>{c.permissions}</p></details>
           </article>)}</section>
@@ -346,9 +381,12 @@ export default function App() {
           {importer}
           <article className="panel"><h2>{counts?imports.total+' successful imports':'データ未取得'}</h2>
             <p>保存完了した取り込みの記録です。拒否した入力はロールバックし、内容を履歴に保存しません。</p>
+            {rejected && <p className="error">直近の取り込み: {rejected.status===422||rejected.status===409?'拒否':'失敗'} · {rejected.provider} · {time(rejected.at)} · {rejected.status?'HTTP '+rejected.status:'接続または入力エラー'}。このタブ内のみの記録です。</p>}
             {imports.items.map(r=><div className="importreceipt" key={r.id}><div><b>{r.provider} · {r.account_alias}</b><span className="chip">合成 / 手動 / 保存済み</span></div>
               <p>{time(r.started_at)} · 保存 {r.counts.messages_inserted}件 / 既存 {r.counts.messages_duplicates}件</p>
               <small>Receipt {r.id} · {r.parser_version}</small>
+              <p className="hash">SHA-256: {r.import_hash || '未提供'}</p>
+              <p className="muted">取得範囲: {r.coverage || '未提供'} · 欠損可能性: {r.missing_records_possible===false?'なし（検証済み範囲のみ）':'未検証'} · プロバイダ全件取得は未確認</p>
             </div>)}
             {imports.next_offset!==null && <button type="button" className="secondary" disabled={busy} onClick={()=>void moreImports()}>Load more imports</button>}
           </article>

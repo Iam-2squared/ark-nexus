@@ -4,6 +4,17 @@ Checked: 2026-10-11. This describes official mechanisms found in documentation, 
 
 "Not verified" means this review found no verified external contract for that action. It is not a claim that a service can never provide it. History coverage is restricted to the specific information listed below.
 
+Provider and Product are separate code fields: OpenAI/consumer_chatgpt, Anthropic/consumer_claude, OpenAI/chatgpt_work, OpenAI/codex_local, OpenAI/codex_cloud, Anthropic/claude_code. The explicit capabilities below are distinct from run-status snapshots and from active Nexus connections.
+
+| Product | Official manual export | Event monitoring | New task | Existing thread/task resume |
+|---|---|---|---|---|
+| Consumer ChatGPT | Documented; real schema unvalidated | Not verified | Not verified | Not verified |
+| Consumer Claude | Documented; real schema unvalidated | Not verified | Not verified | Not verified |
+| ChatGPT Work | Not verified externally | Not verified externally | Not verified externally | Not verified externally |
+| Codex Local | Not verified as consumer-style export | Documented attached notifications | Documented | Documented |
+| Codex Cloud | Not verified | Not verified; list is a snapshot | Documented | Not verified |
+| Claude Code | Not verified as consumer-style export | Documented attached stream | Documented | Documented |
+
 | Service | History read | Run status | New task | Resume task | Nexus V1 |
 |---|---|---|---|---|---|
 | ChatGPT consumer | Manual export [1] | Not verified | Not verified | Not verified | Synthetic fixture adapter only; real schema BLOCKED |

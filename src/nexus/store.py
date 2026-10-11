@@ -1,6 +1,5 @@
 """Small SQLite persistence layer with an idempotent migration and provenance-preserving imports."""
 
-import hashlib
 import json
 import sqlite3
 import uuid
@@ -9,7 +8,8 @@ from datetime import datetime, timezone
 from importlib import resources
 from pathlib import Path
 
-from nexus.private_storage import prepare_database
+from nexus.integrity import inspect_integrity
+from nexus.private_storage import checked_database_path, prepare_database
 
 
 def utcnow() -> str:
@@ -27,6 +27,7 @@ class Store:
 
     @contextmanager
     def connect(self):
+        checked_database_path(self.path)
         conn = sqlite3.connect(self.path, timeout=15)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys=ON")
@@ -191,7 +192,10 @@ class Store:
                                   "read_live_status": False, "dispatch_new": False,
                                   "resume_existing": False},
                  "connection_state": "manual_import", "data_kind": "synthetic",
-                 "sync_mode": "manual", "coverage": "synthetic_only"} for r in rows]
+                 "sync_mode": "manual", "coverage": "synthetic_only",
+                 "freshness": "manual_snapshot", "live_sync_available": False,
+                 "not_connected_reason": "Real-format adapter and live sync are not enabled"}
+                for r in rows]
 
     def overview(self) -> dict:
         with self.connect() as db:
@@ -206,33 +210,7 @@ class Store:
     def integrity_report(self) -> dict:
         with self.connect() as db:
             db.execute("BEGIN")
-            checks = {
-                "sqlite_errors": sum(r[0] != "ok" for r in db.execute("PRAGMA integrity_check")),
-                "foreign_key_errors": len(db.execute("PRAGMA foreign_key_check").fetchall()),
-                "missing_search_rows": db.execute(
-                    "SELECT count(*) FROM (SELECT id FROM messages EXCEPT "
-                    "SELECT message_id FROM message_search)"
-                ).fetchone()[0],
-                "orphan_search_rows": db.execute(
-                    "SELECT count(*) FROM message_search f WHERE NOT EXISTS "
-                    "(SELECT 1 FROM messages m WHERE m.id=f.message_id)"
-                ).fetchone()[0],
-                "duplicate_search_keys": db.execute(
-                    "SELECT count(*) FROM (SELECT message_id FROM message_search "
-                    "GROUP BY message_id HAVING count(*)>1)"
-                ).fetchone()[0],
-                "stale_search_rows": db.execute(
-                    "SELECT count(*) FROM message_search f JOIN messages m ON m.id=f.message_id "
-                    "JOIN conversations c ON c.id=m.conversation_id "
-                    "WHERE f.content != m.content OR f.title != c.title"
-                ).fetchone()[0],
-                "content_hash_mismatches": sum(
-                    hashlib.sha256(r[0].encode("utf-8")).hexdigest() != r[1]
-                    for r in db.execute("SELECT content,content_sha256 FROM messages")
-                ),
-            }
-        return {"ok": not any(checks.values()), "checks": checks,
-                "coverage": "stored_records_only", "provider_completeness_verified": False}
+            return inspect_integrity(db)
 
     def _page(self, sql: str, params: list | tuple, limit: int, offset: int) -> dict:
         with self.connect() as db:
@@ -251,7 +229,9 @@ class Store:
         )
         page["items"] = [{**r, "counts": json.loads(r["counts_json"]),
                           "errors": json.loads(r["errors_json"]), "status": "imported",
-                          "data_kind": "synthetic"} for r in page["items"]]
+                          "data_kind": "synthetic", "coverage": "synthetic_only",
+                          "provider_completeness_verified": False,
+                          "missing_records_possible": True} for r in page["items"]]
         return page
 
     def receipt(self, batch_id: str) -> dict | None:
