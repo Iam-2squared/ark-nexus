@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from conftest import upload
 
+from nexus.private_storage import checked_path
 from nexus.store import Store
 
 
@@ -58,6 +59,35 @@ def test_symlink_database_path_does_not_write_to_target(tmp_path):
     with pytest.raises(ValueError, match="symlink"):
         Store(link)
     assert target.read_bytes() == b"unchanged"
+
+
+def test_junction_ancestor_is_rejected_before_any_write(tmp_path, monkeypatch):
+    junction = tmp_path / "junction"
+    monkeypatch.setattr(Path, "is_junction", lambda self: self == junction)
+    with pytest.raises(ValueError, match="junction"):
+        checked_path(junction / "nexus.sqlite3")
+    assert not junction.exists()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Real NTFS junction creation requires Windows")
+def test_real_windows_junction_does_not_write_to_target(tmp_path):
+    import subprocess
+    target = tmp_path / "target"
+    target.mkdir()
+    sentinel = target / "sentinel"
+    sentinel.write_bytes(b"unchanged")
+    junction = tmp_path / "junction"
+    result = subprocess.run(["cmd", "/c", "mklink", "/J", str(junction), str(target)],
+                            capture_output=True, check=False)
+    assert result.returncode == 0, "Unable to create test NTFS junction"
+    try:
+        with pytest.raises(ValueError, match="junction"):
+            Store(junction / "nexus.sqlite3")
+        assert sentinel.read_bytes() == b"unchanged"
+        assert list(target.iterdir()) == [sentinel]
+    finally:
+        # Remove only the junction created by this synthetic test, not its target.
+        junction.rmdir()
 
 
 def test_importing_api_module_does_not_create_profile_database(tmp_path):

@@ -23,10 +23,23 @@ def local_access_key(directory: Path) -> str:
     try:
         descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     except FileExistsError:
+        if not path.is_file():
+            raise ValueError("Local access key path must be a file") from None
+        try:
+            with path.open("rb") as reader:
+                raw = reader.read(259)
+            if len(raw) > 258:
+                raise ValueError
+            if raw.endswith(b"\r\n"):
+                raw = raw[:-2]
+            elif raw.endswith(b"\n"):
+                raw = raw[:-1]
+            token = valid_key(raw.decode("ascii"))
+        except (OSError, ValueError):
+            raise ValueError("Invalid local access key file") from None
         if os.name != "nt":
             path.chmod(0o600)
-        with path.open(encoding="ascii") as reader:
-            return valid_key(reader.read(257).strip())
+        return token
     else:
         token = secrets.token_urlsafe(32)
         with os.fdopen(descriptor, "w", encoding="ascii") as writer:

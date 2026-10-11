@@ -1,7 +1,7 @@
 .venv/
 __pycache__/
 .pytest_cache/
-.pytest-tmp/
+.pytest-tmp*/
 tmp/
 *.tsbuildinfo
 .ruff_cache/

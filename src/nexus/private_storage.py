@@ -8,6 +8,8 @@ def checked_path(value: Path) -> Path:
     path = value.expanduser().absolute()
     if any(candidate.is_symlink() for candidate in (path, *path.parents)):
         raise ValueError("Private database paths must not contain a symlink")
+    if any(candidate.is_junction() for candidate in (path, *path.parents)):
+        raise ValueError("Private database paths must not contain a junction")
     if path.exists() and path.is_file() and path.stat().st_nlink > 1:
         raise ValueError("Private database paths must not use hard links")
     return path

@@ -109,6 +109,16 @@ describe('Nexus dashboard truthful state and local operations',()=>{
     expect(sessionStorage.getItem('nexus-local-key')).toBeNull()
     expect(screen.queryByText('9,876')).toBeNull()
   })
+
+  it('locks and clears private snapshots when an integrity request rejects the key',async()=>{
+    await ready()
+    fetchMock.mockImplementation(async(input,init)=>urlOf(input).pathname==='/api/v1/integrity'
+      ?response({detail:'Local access key required'},401):defaultHttp(input,init))
+    await userEvent.click(screen.getByRole('button',{name:'Check stored data integrity'}))
+    await screen.findByText('LOCAL WORKSPACE LOCKED')
+    expect(sessionStorage.getItem('nexus-local-key')).toBeNull()
+    expect(screen.queryByText('9,876')).toBeNull()
+  })
   it('uses whole-database counts rather than visible conversation totals',async()=>{
     await ready()
     expect(screen.getByText('1,234')).toBeTruthy()
@@ -135,8 +145,10 @@ describe('Nexus dashboard truthful state and local operations',()=>{
     })
     await ready(); await tab('Universal Search')
     await userEvent.type(screen.getByRole('textbox',{name:'Search imported messages'}),'日本語%')
-    await userEvent.selectOptions(screen.getByLabelText('Source'),'s1')
-    await userEvent.selectOptions(screen.getByLabelText('Project'),'p1')
+    await userEvent.selectOptions(screen.getByLabelText('Source',{exact:true}),'s1')
+    await userEvent.selectOptions(screen.getByLabelText('Project',{exact:true}),'p1')
+    expect(screen.getByRole('combobox',{name:'Source'})).toBeTruthy()
+    expect(screen.getByRole('combobox',{name:'Project'})).toBeTruthy()
     await userEvent.click(screen.getByRole('button',{name:'Search'}))
     await screen.findByRole('heading',{name:'2 results · 1 shown'})
     const call=fetchMock.mock.calls.find(([input])=>urlOf(input).pathname==='/api/v1/search')!

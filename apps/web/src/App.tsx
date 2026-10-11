@@ -215,9 +215,9 @@ export default function App() {
     finally { setBusy(false) }
   }
   async function checkIntegrity() {
-    setBusy(true); setNotice('')
+    setBusy(true); setNotice(''); setIntegrity(null)
     try { setIntegrity(await api('/integrity')) }
-    catch (err) { setNotice(errorText(err)) }
+    catch (err) { reportError(err) }
     finally { setBusy(false) }
   }
 
@@ -291,9 +291,9 @@ export default function App() {
             <div className="searchform"><input aria-label="Search imported messages" value={query} maxLength={300} onChange={e=>setQuery(e.target.value)} placeholder="日本語・キーワードで検索" />
               <button className="primary" disabled={busy||apiState!=='ready'}>Search</button></div>
             <div className="filters">
-              <label>Source<select value={sourceFilter} onChange={e=>setSourceFilter(e.target.value)}><option value="">All sources</option>
+              <label>Source<select aria-label="Source" value={sourceFilter} onChange={e=>setSourceFilter(e.target.value)}><option value="">All sources</option>
                 {sources.map(s=><option value={s.id} key={s.id}>{s.provider} · {s.account_alias}</option>)}</select></label>
-              <label>Project<select value={projectFilter} onChange={e=>setProjectFilter(e.target.value)}><option value="">All projects</option>
+              <label>Project<select aria-label="Project" value={projectFilter} onChange={e=>setProjectFilter(e.target.value)}><option value="">All projects</option>
                 {projects.map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select></label>
             </div>
           </form>

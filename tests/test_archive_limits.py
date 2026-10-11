@@ -25,7 +25,7 @@ def archive(entries, compression=zipfile.ZIP_STORED):
     archive([("bomb.json", "0" * 100000)], zipfile.ZIP_DEFLATED),
     archive([("./dot.json", "{}")]),
     b"not-a-zip",
-])
+], ids=["duplicate-paths", "201-entries", "compression-bomb", "dot-path", "corrupt-zip"])
 def test_abusive_archives_never_extract_files(tmp_path, payload):
     with pytest.raises(ImportProblem):
         safe_json_payload(payload, "unsafe.zip")

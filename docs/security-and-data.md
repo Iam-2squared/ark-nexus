@@ -25,7 +25,7 @@ Imports and migrations acquire a write transaction before identity/schema checks
 
 Default database: Windows LOCALAPPDATA/ARK-Nexus/nexus.sqlite3; Linux ~/.local/share/ark-nexus/nexus.sqlite3. NEXUS_DATA_DIR can override it. Module import creates no profile database; server startup does. Development tests use synthetic data in isolated temporary directories.
 
-Database paths containing symlinks or hard links are rejected. New POSIX directories/files use 0700/0600. Windows inherits the account directory's ACL; POSIX mode assertions do not verify Windows ACL behavior. SQLite storage is plaintext. Encryption/full-disk protection and shared-machine access decisions remain an explicit private-data gate.
+Database/key paths containing symlinks, NTFS junctions or hard links are rejected before writing. Existing access-key paths must be regular files and contain at most 256 token characters with only an optional LF/CRLF ending; malformed files are rejected without echoing contents or changing directory permissions. New POSIX directories/files use 0700/0600. Windows inherits the account directory's ACL; POSIX mode assertions do not verify Windows ACL behavior. SQLite storage is plaintext. Encryption/full-disk protection and shared-machine access decisions remain an explicit private-data gate.
 
 Retention is indefinite until the owner requests deletion. There is no HTTP deletion endpoint, scheduled cleanup or source-deletion propagation. Destructive removal or replacing an existing database requires separate explicit authorization. Raw uploaded archives, filenames and message payloads are not stored in audit entries. Successful import receipts preserve batch hashes/counts/version/source; rejected input is not retained as payload or a successful receipt.
 

@@ -37,4 +37,8 @@ The frontend DOM tests exercise local authentication, UI requests, provenance, i
 
 Windows POSIX permission assertions are explicitly skipped because they cannot verify Windows ACLs. Symlink tests can skip when the runner lacks creation rights; report those separately from executed checks.
 
+First expanded-CI run 38118124755 at adbb95b15b5c6e03a5f424a5e4b1d7afbecbbaf5 failed 3/5 jobs. Both Windows jobs hit the 32,767-character environment-variable limit because pytest expanded a large ZIP byte parameter into a case name. Explicit short case IDs retain the exact archive contents and rejection assertions. Chromium completed the 1,000-message import/reimport and message paging, then failed to locate the exact search project label. Explicit filter aria-labels fix the label association; the browser assertion and timeout remain unchanged. Additional key-file failures were reproduced before fixing validation, and NTFS junction rejection is covered by a platform-independent regression and a real Windows-only filesystem test. These failures are retained as evidence; final new-HEAD CI must pass.
+
+The integrity-check UI also retained an unlocked snapshot after a 401; a failing DOM reproduction was added before routing that error through the shared lock/clear handler. Each new integrity check clears its previous result before requesting fresh evidence.
+
 V1 official PASS stays **BLOCKED** until the actual-format and remaining private-data security gates pass. Do not report a percentage without a separately agreed gate-weighting method.
