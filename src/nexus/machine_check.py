@@ -151,6 +151,12 @@ def run_probe(repo: Path, root: Path, report: dict, offline_attested: bool = Fal
             _expect(acl["allowlist_only"] and acl["owner_allowed"] and acl["protected_root"])
         else:
             record(report, gate, "SKIP", "windows_required")
+        # Windows mkdir(0o700) installs a separate user/admin DACL instead of
+        # inheriting the root's reviewed user/SYSTEM/admin rules. Precreate ONLY
+        # these new empty synthetic children after root protection, retaining the
+        # exact same required grants; normal application storage is not changed.
+        for name in ("profile", "backup", "restored"):
+            checked_path(root / name).mkdir(mode=0o777 if os.name == "nt" else 0o700)
         gate = "cold_start"
         profile = root / "profile"
         process = _start(repo, profile)

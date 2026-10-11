@@ -33,6 +33,8 @@ powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\Te
 
 毎回、新しい`tmp/windows-evidence/<run-id>/`を排他的に作成する。ACLを設定するのは、その実行が作った空のテストディレクトリ1つだけ。継承を止め、実行ユーザー、SYSTEM、Administratorsのみを許可する。SYSTEM/管理者と同一OSユーザーのプロセスは保護境界外。symlink/junction/reparse pointを拒否する。既存DBの削除・上書きやテスト領域の自動削除は行わない。
 
+rootのDACL検査後、profile/backup/restoredの新規空ディレクトリだけを保護済みrootから継承させて作る。Windows Pythonの`mkdir(0o700)`による別DACL生成でSYSTEM grantが落ちないようにするため。ファイル検査の必須grantを削除してPASSにする変更ではない。通常のアプリ保存先・既存ディレクトリの権限は変更しない。
+
 標準出力は`Evidence: tmp/windows-evidence/<run-id>/report.json`のみ。結果は固定Gateと理由コードのJSON。ユーザー名、ホームパス、SID、端末名、PID、キー、本文、ファイル名、HTTP生レスポンス、例外の内容は保存しない。子サーバーの標準出力・エラー・アクセスログも収集しない。共有するのはレビューした **report.jsonだけ**。ディレクトリ全体、DB、key、ブラウザーのストレージ、ターミナル全文を送らない。
 
 | 自動Gate | 期待結果 | 実際に確認するもの |
