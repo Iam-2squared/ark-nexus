@@ -29,6 +29,8 @@ Database/key paths containing symlinks, NTFS junctions or hard links are rejecte
 
 Retention is indefinite until the owner requests deletion. There is no HTTP deletion endpoint, scheduled cleanup or source-deletion propagation. Destructive removal or replacing an existing database requires separate explicit authorization. Raw uploaded archives, filenames and message payloads are not stored in audit entries. Successful import receipts preserve batch hashes/counts/version/source; rejected input is not retained as payload or a successful receipt.
 
+Not storing rejected input in Nexus tables does not prove it never reaches OS temporary storage. The installed Starlette multipart implementation can spool uploads over 1 MiB before format rejection, and SQLite can create sort/temp files outside the profile. Private temp containment, crash remnants and normal Windows profile ACLs remain unqualified. See the [storage-surface and encryption decision matrix](data-protection-decisions.md). Do not use the synthetic-only build with private exports.
+
 ## Integrity and recovery
 
 GET /api/v1/integrity checks SQLite and foreign keys, missing/orphan/duplicate/stale search rows and content-hash mismatches. Responses contain counts, not conversation content. It checks stored records only: it cannot establish completeness of an export or detect provider records never observed.
@@ -48,3 +50,5 @@ The local owner controls the private directory; path checks are not a defense ag
 - Windows synthetic-directory DACL/listener probe: implemented; new-HEAD Windows CI evidence required. Owner-machine and private-profile ACL evidence remain NOT RUN. See [Windows guide](windows-machine-validation.md).
 - Local Chromium execution could not start because the download failed. Actual API/UI browser tests are added to GitHub Actions and must pass at the new HEAD. Owner-machine Windows/browser/offline cold startup remains unverified.
 - Large real exports, attachments, branch/revision semantics, background sync and encrypted storage: not implemented.
+
+The latest continuation adds a clean-checkout/unelevated-token preflight for owner probes, local Git-context isolation without index refresh, fixed interruption evidence with own-child cleanup, and strictly boolean/allowlisted inspection output. Dedicated Windows token/junction tests are runner checks, not owner-machine evidence. The [short owner checklist](windows-owner-checklist.md) preserves six NOT RUN gates and limits shared input to redacted report.json/manual results. The new pure contract dry-run never registers or enables a real adapter.

@@ -24,3 +24,5 @@
 将来の方式候補はSQLCipher等のDB暗号化、またはアプリ層のrecord暗号化。FTS・インデックス・タイトル・source metadata・WAL/shm/journal・backupに漏れる範囲、Windows/Linuxへの配布、migration、暗号keyのOS credential store保管、unlock/rotation/recovery、紛失時の復旧、暗号化前の残存ファイルを設計してから採用する。現時点では方式未選定・暗号化未実装。OS credential store接続や実データmigrationも別承認。
 
 バックアップは常にprivate。現在のcopyは新規pathに限り、SQLite/FK/FTS/content hashを同じsnapshotで検査する。sourceが論理破損していたら「verified backup」として受け入れない。失敗後に取り除くのはその呼出しが作った同じinodeの新規destinationだけ。既存DB/sidecarや差し替えられたファイルは削除しない。
+
+[データ保護の意思決定メモ](data-protection-decisions.md)で通常profileと合成ACL、WAL/SHM/backup/key/temp/browser/artifactの境界、5方式の暗号化候補、復旧・rotation・移行失敗の停止条件を比較する。方式選定・本番key store接続・実データ変換・原本削除は未承認で未実装。非破壊のAdapter contract dry-runが返すstored_records=0は、保存済みDBの取消・削除・collision previewを実装したという意味ではない。

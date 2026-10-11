@@ -25,7 +25,7 @@ GATES = ("cold_start", "owned_loopback_listener", "owner_auth", "host_origin_csr
          "private_profile_acl", "real_chatgpt_format", "real_claude_format")
 STATUSES = {"PASS", "FAIL", "SKIP", "NOT RUN"}
 REASONS = {"verified", "check_failed", "not_attempted", "windows_required",
-           "operator_required", "approved_sample_required", "operator_attested"}
+           "operator_required", "approved_sample_required", "operator_attested", "interrupted"}
 
 
 def new_report(head: str, clean: bool, context: str) -> dict:
@@ -49,34 +49,59 @@ def record(report: dict, gate: str, status: str, reason: str = "verified") -> No
 
 
 def _command(repo: Path, *args: str) -> str:
+    # An inherited Git context must not redirect even an index refresh outside
+    # this checkout. These metadata reads never need account/network variables.
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    environment["GIT_OPTIONAL_LOCKS"] = "0"
     result = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, check=False,
-                            timeout=10)
+                            timeout=10, env=environment)
     if result.returncode:
         raise ValueError("Repository identity unavailable")
     return result.stdout.decode("utf-8").strip()
 
 
 def workspace_metadata(repo: Path) -> tuple[str, bool]:
-    checked_path(repo)
+    repo = checked_path(repo)
+    git_directory = checked_path(repo / ".git")
+    if git_directory.exists() and not git_directory.is_dir():
+        raise ValueError("Repository workspace must contain its own Git directory")
     remote = _command(repo, "config", "--get", "remote.origin.url")
     if remote not in {"https://github.com/" + REPOSITORY + ".git",
                       "https://github.com/" + REPOSITORY,
                       "git@github.com:" + REPOSITORY + ".git"}:
         raise ValueError("Repository identity mismatch")
+    if Path(_command(repo, "rev-parse", "--show-toplevel")).absolute() != repo:
+        raise ValueError("Repository workspace root mismatch")
+    if not git_directory.is_dir():
+        raise ValueError("Repository workspace Git directory unavailable")
     return _command(repo, "rev-parse", "HEAD"), not bool(_command(repo, "status", "--porcelain"))
 
 
 def powershell(repo: Path, script: str, *arguments: str) -> dict:
+    fields = {"Inspect-TestDirectory.ps1": {"allowlist_only", "owner_allowed", "protected_root"},
+              "Inspect-TestListener.ps1": {"owned_loopback_only"},
+              "Inspect-TestOperator.ps1": {"standard_user"}}
+    if script not in fields:
+        raise ValueError("Windows inspection not allowlisted")
+    script_path = checked_path(repo / "scripts" / script)
+    if not script_path.is_file():
+        raise ValueError("Windows inspection unavailable")
     executable = shutil.which("pwsh") or shutil.which("powershell")
     if not executable:
         raise ValueError("Windows inspection unavailable")
     result = subprocess.run([executable, "-NoProfile", "-NonInteractive", "-ExecutionPolicy",
                              "Bypass", "-File",
-                             str(repo / "scripts" / script), *arguments],
+                             str(script_path), *arguments],
                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=30, check=False)
     if result.returncode:
         raise ValueError("Windows inspection failed")
-    return json.loads(result.stdout.decode("utf-8-sig"))
+    if len(result.stdout) > 4096:
+        raise ValueError("Windows inspection result too large")
+    data = json.loads(result.stdout.decode("utf-8-sig"))
+    if (type(data) is not dict or set(data) != fields[script]
+            or any(type(value) is not bool for value in data.values())):
+        raise ValueError("Invalid Windows inspection classification")
+    return data
 
 
 def request(path: str, key: str = "", method: str = "GET", body: bytes | None = None,
@@ -121,7 +146,9 @@ def _start(repo: Path, profile: Path) -> subprocess.Popen:
                 pass
             time.sleep(0.1)
         raise ValueError("Test server did not become ready")
-    except Exception:
+    except BaseException:
+        # Startup has not returned the child to run_probe yet. Ctrl+C must not
+        # leave that child running; re-raise after cleaning up only our process.
         _stop(process)
         raise
 
@@ -229,6 +256,8 @@ def run_probe(repo: Path, root: Path, report: dict, offline_attested: bool = Fal
                 result = powershell(repo, "Inspect-TestDirectory.ps1", "-Directory", str(path))
                 _expect(result["allowlist_only"] and result["owner_allowed"])
             record(report, gate, "PASS")
+    except KeyboardInterrupt:
+        record(report, gate, "FAIL", "interrupted")
     except Exception:
         record(report, gate, "FAIL", "check_failed")
     finally:
@@ -243,14 +272,18 @@ def run_probe(repo: Path, root: Path, report: dict, offline_attested: bool = Fal
 
 
 def main() -> None:
-    parser = PrivateArgumentParser(description="New-directory synthetic local evidence only")
-    parser.add_argument("--offline-attested", action="store_true")
-    args = parser.parse_args()
     try:
+        parser = PrivateArgumentParser(description="New-directory synthetic local evidence only")
+        parser.add_argument("--offline-attested", action="store_true")
+        args = parser.parse_args()
         repo = Path(__file__).absolute().parents[2]
         head, clean = workspace_metadata(repo)  # Validate before creating any files.
         context = ("github_runner" if os.environ.get("GITHUB_ACTIONS") == "true"
                    else "owner_windows" if os.name == "nt" else "test_harness")
+        if not clean and context != "github_runner":
+            raise ValueError("Owner evidence requires a clean reviewed checkout")
+        if context == "owner_windows":
+            _expect(powershell(repo, "Inspect-TestOperator.ps1")["standard_user"] is True)
         report = new_report(head, clean, context)
         root = checked_path(repo / "tmp" / "windows-evidence" / uuid.uuid4().hex)
         root.mkdir(mode=0o700, parents=True, exist_ok=False)
@@ -259,7 +292,7 @@ def main() -> None:
             json.dump(report, stream, ensure_ascii=True, indent=2)
         print("Evidence: " + root.relative_to(repo).as_posix() + "/report.json")
         raise SystemExit(1 if any(g["status"] == "FAIL" for g in report["gates"].values()) else 0)
-    except (OSError, ValueError, subprocess.SubprocessError):
+    except (OSError, ValueError, subprocess.SubprocessError, KeyboardInterrupt):
         print("Synthetic evidence check refused or failed; no private details logged.", file=sys.stderr)
         raise SystemExit(1) from None
 

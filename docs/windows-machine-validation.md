@@ -2,6 +2,8 @@
 
 確認日: 2026-10-11。ユーザーWindows実機は **NOT RUN**。GitHub Windows runnerの成功はユーザーPCの成功を意味しない。実形式サンプルと実機Gateが揃うまでV1公式判定は **BLOCKED**。
 
+短い実行・共有チェックリストは[所有者向けチェックリスト](windows-owner-checklist.md)。結果をWorkが仮入力することはない。
+
 ## 境界と事前準備
 
 ARK Nexus専用checkoutで行う。管理者として起動しない。既存DB、通常のLOCALAPPDATA、他プロジェクト、他ユーザーの権限、ネットワーク設定は変更しない。外部AIや有料APIには接続しない。以下の依存取得はインターネットがある間に完了させる。Python 3.12または3.13、Node 22.12以上、Gitを事前に用意する。
@@ -19,7 +21,7 @@ npm run build
 Pop-Location
 ```
 
-作業中の変更があるcheckoutを上書きしない。Python 3.13の場合は`py -3.13`に置き換える。GitHub上の最新HEADとローカル`git rev-parse HEAD`を照合する。
+`git switch` / `git pull`の前に`git status --porcelain`が空であることを確認する。作業中の変更があるcheckoutを上書きしない。Python 3.13の場合は`py -3.13`に置き換える。GitHub上の最新HEADとローカル`git rev-parse HEAD`を照合する。checkout、tmp、.venv、node_modulesのリンク/junction経由で別プロジェクトを使用しない。
 
 ## 自動検証コマンド
 
@@ -29,7 +31,7 @@ Nexusの8788番サービスを自分で通常終了してから実行する。�
 powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\Test-NexusWindows.ps1 -Python .\.venv\Scripts\python.exe
 ```
 
-`ExecutionPolicy Bypass`はこのプロセス内だけ。永続的な実行ポリシーやシステム権限は変更しない。実行前に3つのPowerShellスクリプトと`src/nexus/machine_check.py`をレビューできる。
+`ExecutionPolicy Bypass`はこのプロセス内だけ。永続的な実行ポリシーやシステム権限は変更しない。実行前に4つのPowerShellスクリプトと`src/nexus/machine_check.py`をレビューできる。所有者実機では、変更中のcheckoutと昇格した管理者tokenをファイル作成前に拒否する。token確認は固定の真偽値だけを扱い、氏名やSIDを出力しない。Git metadata取得では継承したGIT_DIR等を除き、index更新を無効化する。外部Git directoryを参照するworktreeもこのprobeでは拒否する。
 
 毎回、新しい`tmp/windows-evidence/<run-id>/`を排他的に作成する。ACLを設定するのは、その実行が作った空のテストディレクトリ1つだけ。継承を止め、実行ユーザー、SYSTEM、Administratorsのみを許可する。SYSTEM/管理者と同一OSユーザーのプロセスは保護境界外。symlink/junction/reparse pointを拒否する。既存DBの削除・上書きやテスト領域の自動削除は行わない。
 
@@ -51,7 +53,7 @@ rootのDACL検査後、profile/backup/restoredの新規空ディレクトリだ�
 | owner_browser_ui / other_os_user_denied / private_profile_acl | NOT RUN | 自動検証では判定しない |
 | real_chatgpt_format / real_claude_format | NOT RUN | 承認済み匿名化実サンプルが必要 |
 
-どれかの自動GateがFAILなら終了コード1。未実行Gateが残っていても自動検証成功は終了コード0になるため、終了コード0をV1公式PASSと解釈しない。失敗時の残存テスト領域は保持する。システムACLを修正して再試行しない。
+どれかの自動GateがFAILなら終了コード1。未実行Gateが残っていても自動検証成功は終了コード0になるため、終了コード0をV1公式PASSと解釈しない。失敗時の残存テスト領域は保持する。システムACLを修正して再試行しない。Ctrl+Cは1回押して後始末を待つ。起動待ち中も自分の子サーバーを停止し、実施中GateにFAIL/interruptedを記録する。事前検査・証跡保存の中断ではJSONがない場合がある。強制終了・OS停止の後始末は保証できず、その試行をPASS扱いしない。
 
 ## 外部ネットワーク切断時のcold start
 
@@ -93,5 +95,6 @@ GitHub ActionsはPython 3.12/3.13のWindowsで同じ合成probeを実行し、�
 - [Get-Acl](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.security/get-acl)
 - [Set-Acl](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.security/set-acl)
 - [Get-NetTCPConnection](https://learn.microsoft.com/en-us/powershell/module/nettcpip/get-nettcpconnection)
+- [WindowsPrincipal.IsInRole](https://learn.microsoft.com/en-us/dotnet/api/system.security.principal.windowsprincipal.isinrole): 現在のtokenを確認。UACの非昇格tokenと管理者としての実行を区別する。
 
 確認日: 2026-10-11。参照はACL/socket検査手段の説明であり、ユーザー実機の結果ではない。

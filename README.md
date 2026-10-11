@@ -56,3 +56,5 @@ See [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), [capabilit
 ## Windows実機・実形式の検証準備
 
 [Windows実機検証手順](docs/windows-machine-validation.md)に、合成データだけを使うローカルprobeと手動Gateを記載しています。ユーザーPCはNOT RUN、ChatGPT/Claude実形式はBLOCKED、V1公式判定はBLOCKEDです。[実形式の受入れ手順](docs/real-format-acceptance.md)と[保持・削除・暗号化設計](docs/retention-and-deletion-design.md)も参照してください。実際の会話・DB・キーを公開GitHubへ追加しないでください。
+
+実機で行う最小コマンドと共有する6 Gateは[所有者チェックリスト](docs/windows-owner-checklist.md)。中断/権限不足/占有ポートは機密を含まないFAIL、未実施はNOT RUNです。通常profileはprobeの対象外。[データ保護の候補・停止条件](docs/data-protection-decisions.md)は方式選定前の設計で、暗号化や削除を有効化しません。

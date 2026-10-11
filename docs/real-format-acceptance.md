@@ -49,6 +49,16 @@ schema確認の共有用メモには、レビュー済みの構造キー、型�
 
 単体テスト雛形は`tests/test_adapter_contracts.py`。現状はdisabled・coverage・製品/Capability分離の検証であり、実形式parserの検証ではない。実装時はprivate承認fixtureごとの入力→正規化ID/role/時刻/件数、incremental/reimport、revision/branch、malformed rollback、非text欠損、Prompt Injection不実行を追加する。既存1,000-message、固定30+30 search、123 baseline、DOM16、Chromium2は維持する。
 
+### 合成contract dry-run（登録・保存なし）
+
+追加の`tests/test_adapter_validation.py`は、架空のJSON形式を推定せず、手作りの正規化objectだけを使う。Provider/Productの対応、限定した版・レビュー参照token、真偽値coverage、completeとmissingの矛盾、未知contract版・trustを実行時に拒否する。レビュー参照tokenの文字検査は匿名性や使用承認の証明ではない。
+
+`dry_run_history(adapter, payload, expected_identity)`はレビューされた純粋parser用の内部関数。HTTP endpointや実形式registryには追加しない。入力32 MiB・会話10,000・message50,000・正規化文字量32 MiBを上限とし、同じnamespace内の会話/message ID重複、曖昧な時刻、NUL/不正Unicode、content hash不一致を拒否する。parser版が変われば明示したexpected identityとの照合で拒否し、再レビューを要求する。保存済みDBとの照合・編集検出を行う機能ではない。
+
+返すのは固定mode/contract版、Provider/Product、件数、coverage、stored_records=0、real_format_verified=falseのみ。元ID・時刻・本文・hash・schema_evidence_idは返さず、parser例外も固定診断に変換する。DB・network・subprocessに依存しない。pure parser実装のコードレビューは必要であり、この関数が任意Pythonコードをsandboxするとは主張しない。`UnverifiedRealAdapter`はdry-runでも拒否され、GateはBLOCKEDのまま。
+
+現在の保存modelは文字列IDとtimezone-aware ISO時刻を要求する。実exportに数値ID・epoch時刻等があれば、型を失う変換でこのmodelへ押し込まない。元の型・表現・参照関係をprivate provenanceに保持する新contract/追加migrationの設計と承認済みサンプルが必要。編集/再生成/分岐は現在の同一ID変更409を迂回して有効化しない。attachments、branches、revisionsは引き続き未検証、部分exportの不在は削除を意味しない。
+
 ## 有効化Gate
 
 承認済み実サンプル適合、provenance/ID collision、incremental/reimport、Unicode/long history、異常入力全rollback、privacy/ACL/backup、ユーザーWindows実機、正確なHEADのCIを別々に評価する。サンプルの未検証scopeを消さず、対応Productとparser versionを明示する。両consumer製品と実機Gateが完了するまで **V1公式判定BLOCKED**。
