@@ -1,0 +1,40 @@
+# V1 evaluation definition and evidence
+
+The initial PASS evidence and test fixture files are preserved. New regression cases add coverage; they do not replace or weaken the existing 1,000-message reimport or 30 token-search assertions.
+
+Baseline inspected: branch feature/v1-unified-history-scaffold at a2aa0e9c739380695842973b2a095e8f195dd354; main 91a493a9ffb636c85b016874f1f721685adab12e. Only Draft PR #1 was open and no reviews/comments were present. GitHub Actions run 38116378322 passed all 5 jobs. Earlier run 38116329877 failed Ruff F841 for an unused variable; that baseline failure had already been corrected.
+
+## Frozen completion gates
+
+| Evaluation | Required result | Evidence / state |
+|---|---|---|
+| Backend CI | Linux/Windows x Python 3.12/3.13 all PASS at the new HEAD | Final GitHub run must be checked after commit |
+| Frontend | TypeScript/Vite build PASS | Local build PASS; new-HEAD CI required |
+| 1,000-message reimport | Zero additional conversations/messages; 1,000 duplicates reported | Original test retained and PASS locally |
+| Search regression | Original fixed 30 token assertions plus additive fixed 30 mixed-language cases | PASS locally; new cases include Japanese short strings, literal %, _, backslash, quotes, filters and provider/account isolation |
+| Provider distinction | Source/provider/account IDs and original message/conversation IDs preserved | Automated provenance/isolation checks |
+| Abnormal input | Safe rejection and full transaction rollback | Host/Origin/body, archive, JSON, Unicode, timestamp and identity tests |
+| Stored history integrity | Detect index gaps/duplicates/staleness and content hash mismatch; preserve recovery | Integrity, concurrent imports/migrations, copy-to-new-location roundtrip tests |
+| Actual provider formats | Approved anonymized current ChatGPT and Claude samples PASS | **BLOCKED for both**; no samples provided |
+
+Updated migration assertions now require versions [1,2], because an additive migration was introduced; repeatability remains required. This is not a relaxed schema or import gate.
+
+## Reproduction
+
+Backend:
+
+    python -m pip install -e ".[dev]"
+    python -m pytest -q --basetemp=.pytest-tmp
+    python -m ruff check .
+
+Frontend (apps/web):
+
+    npm ci --no-audit --no-fund
+    npm test
+    npm run build
+
+The frontend DOM tests exercise local authentication, UI requests, provenance, imports, disabled connectors and failure states with synthetic HTTP responses. jsdom file-validation behavior differs from a native browser, so upload form handlers are exercised after file selection; actual file validation/submit behavior is separately tested by Chromium. They do not replace real Chromium layout, cross-browser behavior or owner-machine offline evidence. Local Playwright execution could not start because Chromium was absent and the download returned invalid archives; no local browser PASS is claimed. GitHub Actions runs two real Chromium API/UI scenarios, including authenticated 1,000-message import/reimport, project mapping, Japanese search, long-history paging, inert imported HTML, mobile overflow and lock behavior. Its current-HEAD result must be verified before claiming browser PASS.
+
+Windows POSIX permission assertions are explicitly skipped because they cannot verify Windows ACLs. Symlink tests can skip when the runner lacks creation rights; report those separately from executed checks.
+
+V1 official PASS stays **BLOCKED** until the actual-format and remaining private-data security gates pass. Do not report a percentage without a separately agreed gate-weighting method.

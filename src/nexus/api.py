@@ -1,14 +1,19 @@
 """Nexus V1 local API. No external APIs, task dispatch, or consumer-chat automation."""
 
 import hashlib
+import sqlite3
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from nexus import __version__
+from nexus.access import local_access_key
+from nexus.connectors import connection_catalog
 from nexus.importers import (
     MAX_UPLOAD_BYTES,
     PARSER_VERSION,
@@ -17,6 +22,7 @@ from nexus.importers import (
     safe_json_payload,
     validate_account_alias,
 )
+from nexus.security import LocalBoundary
 from nexus.settings import database_path
 from nexus.store import Store
 
@@ -31,25 +37,55 @@ class SetProject(BaseModel):
 
 
 def create_app(path: Path | None = None) -> FastAPI:
-    app = FastAPI(title="ARK Nexus Local API", version=__version__)
-    app.state.store = Store(path or database_path())
+    def initialize(app, database):
+        app.state.store = Store(database)
+        # Serialize startup key creation with other instances using the same database.
+        with app.state.store.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            app.state.access_key = local_access_key(app.state.store.path.parent)
 
-    @app.middleware("http")
-    async def same_origin_write(request: Request, call_next):
-        if request.method in ("POST", "PATCH", "PUT", "DELETE"):
-            origin = request.headers.get("origin")
-            allowed = {
-                "http://127.0.0.1:8788", "http://localhost:8788",
-                "http://127.0.0.1:5173", "http://localhost:5173",
-            }
-            if origin is not None and origin not in allowed:
-                return JSONResponse({"detail": "Cross-site write not permitted"}, status_code=403)
-        return await call_next(request)
+    @asynccontextmanager
+    async def lifespan(app):
+        if path is None:
+            initialize(app, database_path())
+        yield
+
+    app = FastAPI(title="ARK Nexus Local API", version=__version__, lifespan=lifespan)
+    # Importing this module must not create a database in the user's profile.
+    if path is not None:
+        initialize(app, path)
+    app.add_middleware(LocalBoundary, key=lambda: app.state.access_key)
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(_request, _exc):
+        return JSONResponse({"detail": "Invalid request fields"}, status_code=422)
+
+    @app.exception_handler(sqlite3.Error)
+    async def storage_error(_request, _exc):
+        return JSONResponse({"detail": "Local storage unavailable"}, status_code=503)
 
     @app.get("/api/v1/health")
     def health():
         return {"status": "ready", "version": __version__, "offline": True,
                 "mode": "synthetic_fixture_only", "external_providers_connected": False}
+
+    @app.get("/api/v1/overview")
+    def overview():
+        return app.state.store.overview()
+
+    @app.get("/api/v1/integrity")
+    def integrity():
+        return app.state.store.integrity_report()
+
+    @app.get("/api/v1/connections")
+    def connections():
+        return {"items": connection_catalog(), "checked_at": "2026-10-11",
+                "execution_enabled": False}
+
+    @app.get("/api/v1/imports")
+    def list_imports(limit: Annotated[int, Query(ge=1, le=200)] = 100,
+                     offset: Annotated[int, Query(ge=0)] = 0):
+        return app.state.store.imports(limit, offset)
 
     @app.get("/api/v1/sources")
     def sources():
@@ -95,17 +131,26 @@ def create_app(path: Path | None = None) -> FastAPI:
         return result
 
     @app.get("/api/v1/conversations")
-    def list_conversations(source_id: str | None = None, project_id: str | None = None):
-        return {"items": app.state.store.conversations(source_id, project_id)}
+    def list_conversations(source_id: str | None = None, project_id: str | None = None,
+                           limit: Annotated[int, Query(ge=1, le=500)] = 100,
+                           offset: Annotated[int, Query(ge=0)] = 0):
+        return app.state.store.conversations_page(source_id, project_id, limit, offset)
 
     @app.get("/api/v1/conversations/{conversation_id}/messages")
-    def list_messages(conversation_id: str):
-        return {"items": app.state.store.messages(conversation_id)}
+    def list_messages(conversation_id: str,
+                      limit: Annotated[int, Query(ge=1, le=1000)] = 200,
+                      offset: Annotated[int, Query(ge=0)] = 0):
+        result = app.state.store.messages_page(conversation_id, limit, offset)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        return result
 
     @app.get("/api/v1/search")
     def search(q: Annotated[str, Query(max_length=300)],
-               project_id: str | None = None, source_id: str | None = None):
-        return {"items": app.state.store.search(q, project_id, source_id)}
+               project_id: str | None = None, source_id: str | None = None,
+               limit: Annotated[int, Query(ge=1, le=100)] = 100,
+               offset: Annotated[int, Query(ge=0)] = 0):
+        return app.state.store.search_page(q, project_id, source_id, limit, offset)
 
     @app.get("/api/v1/projects")
     def projects():

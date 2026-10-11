@@ -8,7 +8,13 @@ from nexus.api import create_app
 
 @pytest.fixture
 def client(tmp_path):
-    with TestClient(create_app(tmp_path / "nexus.sqlite3")) as c:
+    app = create_app(tmp_path / "nexus.sqlite3")
+    with TestClient(
+        app,
+        base_url="http://127.0.0.1:8788",
+        client=("127.0.0.1", 50000),
+        headers={"X-Nexus-Request": "1", "Authorization": "Bearer " + app.state.access_key},
+    ) as c:
         yield c
 
 

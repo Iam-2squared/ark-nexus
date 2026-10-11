@@ -6,7 +6,7 @@ def test_migration_is_repeatable(tmp_path):
     Store(path)
     two = Store(path)
     with two.connect() as db:
-        assert db.execute("SELECT count(*) FROM schema_migrations").fetchone()[0] == 1
+        assert [r[0] for r in db.execute("SELECT version FROM schema_migrations ORDER BY version")] == [1, 2]
 
 
 def test_search_does_not_execute_sql(client, seed_chatgpt):
