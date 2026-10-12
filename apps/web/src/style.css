@@ -19,7 +19,7 @@
 h1{font-size:clamp(32px,3.6vw,52px);font-weight:500;letter-spacing:-.055em;line-height:1.15;margin:0 0 16px}.home-heading h1{max-width:540px}
 h2{font-size:18px;font-weight:600;letter-spacing:-.025em;margin:0 0 20px}h3{font-size:16px;margin:10px 0}p{line-height:1.8}.intro{margin:0;color:var(--muted);font-size:12px;line-height:1.9}
 .universe-note{min-width:190px;padding-left:20px;color:#61798f}.universe-note>span{font-size:8px;letter-spacing:.18em}.universe-note p{font-size:15px;font-weight:400;line-height:1.6;margin:14px 0 18px}.universe-note .note-line{display:block;width:80px;height:1px;background:#b6c8d8}
-.workspace-map{position:relative}.orbit-map{height:420px;margin:-15px 0 12px}.star-nav{position:relative;z-index:2}.orbit-map .star-nav{height:100%}
+.workspace-map{position:relative}.orbit-map{height:460px;margin:-15px 0 12px}.star-nav{position:relative;z-index:2}.orbit-map .star-nav{height:100%}
 .constellation-lines{position:absolute;inset:0;width:100%;height:100%;stroke:#b5c9dc;stroke-width:.65;fill:none;pointer-events:none}.constellation-lines ellipse{stroke-dasharray:2 7;opacity:.7}
 .star-link{display:flex;align-items:center;gap:12px;border:0;background:none;padding:12px;color:#405b74;border-radius:12px;text-align:left;transition:background .18s,color .18s;min-height:64px}.orbit-map .star-link{position:absolute;transform:translate(-50%,-50%)}
 .star-node{position:relative;display:grid;place-items:center;width:40px;height:40px;flex-shrink:0;border:1px solid #c5d7e6;border-radius:50%;background:#fcfdffb3;box-shadow:0 0 18px #98bcdb16}
@@ -28,8 +28,8 @@ h2{font-size:18px;font-weight:600;letter-spacing:-.025em;margin:0 0 20px}h3{font
 .star-link:hover{background:#fff9;color:#254e74}.star-link:hover .star-node,.star-link:focus-visible .star-node{box-shadow:0 0 24px #8ebce44a;border-color:#8aafcd}
 .star-link[aria-current=page]{color:#2f608a;background:#ffffff8c}.star-link[aria-current=page] .star-node{background:#e9f1f9;border-color:#9ab7d0;box-shadow:0 0 25px #9dbcd739}
 .star-overview{left:17.5%;top:23%}.star-conversations{left:82%;top:19%}.star-search{left:85.3%;top:55.5%}.star-projects{left:68.6%;top:83.3%}.star-connections{left:31.8%;top:83.3%}.star-imports{left:14.3%;top:55.5%}
-.singularity-hub{position:absolute;left:50%;top:43%;transform:translate(-50%,-50%);width:min(58vw,620px);text-align:center;pointer-events:none}.hub-coordinate{font-size:7px;letter-spacing:.22em;color:#697f96;margin-bottom:8px}
-.singularity-visual{position:relative;height:276px;width:100%;display:grid;place-items:center}.white-hole-visual{display:block;width:100%;height:100%;overflow:visible}
+.singularity-hub{position:absolute;left:50%;top:43%;transform:translate(-50%,-50%);width:min(66vw,760px);text-align:center;pointer-events:none}.hub-coordinate{font-size:7px;letter-spacing:.22em;color:#697f96;margin-bottom:8px}
+.singularity-visual{position:relative;height:380px;width:100%}.white-hole-visual{display:block;width:100%;height:100%;overflow:hidden}
 .hub-caption{position:relative;margin-top:12px}.hub-caption b{display:block;font-size:12px;font-weight:600;letter-spacing:.35em;padding-left:.35em}.hub-caption span{display:block;margin-top:8px;font-size:7px;color:#687e93;letter-spacing:.16em}
 .compact-map{margin-bottom:28px}.compact-map .constellation-lines{display:none}.compact-map .star-nav{display:flex;flex-wrap:wrap;gap:8px;padding:8px;border:1px solid var(--line);border-radius:16px;background:#ffffff73}
 .compact-map .star-link{padding:8px 12px;flex:1;justify-content:center}.compact-map .star-node{width:30px;height:30px}.compact-map .star-node svg{width:15px;height:15px}.compact-map .star-label{font-size:11px}.compact-map .star-label small{display:none}
@@ -50,7 +50,7 @@ details{color:#526f89;font-size:12px}summary{cursor:pointer;min-height:44px;padd
 @media(max-width:1100px){.body{padding:32px 30px}.shell-location{display:none}.star-label{font-size:11px}.star-link{gap:9px;padding:9px}.star-connections{left:29%}.star-projects{left:72%}.compact-map .star-link{flex-basis:28%}}
 @media(max-width:760px){
   .topbar{min-height:84px;padding:18px 22px}.brand b{font-size:13px}.brand small{font-size:6px}.pill{font-size:7px;padding:9px 10px}.body{padding:32px 22px}.universe-note{display:none}.page-heading{margin-bottom:25px}
-  .orbit-map{height:auto;margin:0 0 20px;padding-top:300px}.singularity-hub{top:0;transform:translateX(-50%);width:min(100%,420px)}.singularity-visual{height:220px}.hub-caption{margin-top:8px}
+  .orbit-map{height:auto;margin:0 0 20px;padding-top:324px}.singularity-hub{top:0;transform:translateX(-50%);width:min(100%,420px)}.singularity-visual{height:244px}.hub-caption{margin-top:8px}
   .orbit-map .star-nav,.compact-map .star-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));height:auto;gap:9px;padding:0;border:0;background:none}.orbit-map .constellation-lines{display:none}
   .orbit-map .star-link,.compact-map .star-link{position:static;transform:none;flex-direction:column;align-items:center;justify-content:flex-start;gap:9px;padding:14px 5px;border:1px solid #d1deea;background:#ffffff80;min-width:0;text-align:center;min-height:109px}
   .star-label{white-space:normal;font-size:10px;line-height:1.5}.star-label small{font-size:6px;margin-top:5px}.compact-map .star-label{font-size:10px}.compact-map .star-node{width:36px;height:36px}

@@ -26,7 +26,7 @@ const diskBands=Array.from({length:24},(_,i)=>i)
 // Bounded static vectors: no animation loop, textures, network or simulation.
 function WhiteBlackHole() {
   const id=useId()
-  return <svg className="white-hole-visual" viewBox="0 0 800 440" aria-hidden="true" focusable="false">
+  return <svg className="white-hole-visual" viewBox="80 0 640 380" aria-hidden="true" focusable="false">
     <defs>
       <linearGradient id={id+'-light'} x1="0" y1="0" x2="1" y2="0">
         <stop offset="0" stopColor="#9db8d3" stopOpacity="0" />

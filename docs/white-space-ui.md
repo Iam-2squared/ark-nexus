@@ -16,6 +16,8 @@
 
 Desktopは周辺に星ノード、mobileはコアの下に3列×2行のラベル付きノード。狭い画面でも6導線を隠さない。native button、aria-current、navigation landmark、skip-to-main、focus-visibleを使用し、装飾SVGを操作対象から除く。主要buttonは44px以上。静的表示を基本にし、prefers-reduced-motionでhover transitionも無効化する。forced-colorsでは装飾より境界・focusを優先する。
 
+所有者の「中心の周りの円をもっと大きく」に合わせ、Hub最大幅を620→760px、描画領域を276→380px、周囲の配置領域を420→460pxへ広げる。SVGは中心を維持したviewBoxに余白を詰め、mobileでも光の輪を大きく表示する。mobileの描画高さは220→244px、ナビ開始位置は300→324px。SVGの描画は固定した枠内に収め、背景色・黒い中心・光の形・操作は維持する。
+
 英字の小さな座標/番号は装飾。本文・運用ラベル・警告は可読性を優先する。セキュリティ/機能の未検証状態をグローや成功色だけで判定させない。
 
 ## 評価と証跡
@@ -23,6 +25,8 @@ Desktopは周辺に星ノード、mobileはコアの下に3列×2行のラベル
 既存DOM20件、Chromium2シナリオ、backend/Linux/Windows Gateは保持。追加DOM6件は中心核・未知件数・6導線・focus・未認証のprivate requestゼロ・装飾の非操作性、未focusのskip linkのclipを確認する。形状・背景の追加2件は修正前に失敗を確認し、空洞/曲がる光/前景disk、文字・raster画像なし、複数HubのSVG ID非衝突、単色白背景/霧なしを固定する。中心色の期待値は所有者の指定により白から黒へ変更し、既存の機能評価は変更しない。
 
 追加Chromium3シナリオで、locked状態の6導線/keyboard focus、320/390/768/1024/1440px全ページの横overflowとclick、reduced-motion/skip link、実際の合成API取得/lockを検証する。さらに、5幅でSVGの画面内収まり・単色白背景・黒い中心、文字/画像なし・装飾による操作遮断なしをassertする。最終HEADのCIと画像確認が終わるまで実ブラウザーPASS/参考画像への適合確認済みとはしない。
+
+円の拡大はSVG枠の寸法だけでなく、実際の光の輪の直径をscreen CTMから計測する。5幅の最低直径は順に120/150/220/275/275px。既存のクリック・focus・overflow・認証/合成取り込み条件は緩めない。最終画像で輪の見え方とナビの可読性も確認する。
 
 CI artifactは明示した4枚の合成PNGだけを1日保存する：overview-mobile.png / connections-desktop.png（既存）、overview-desktop.png / overview-locked.png（追加）。private profile、DB、key、trace、raw exportはartifactに含めない。Desktop PNGは1440×1000のviewport、mobile PNGは既存390pxのfull page。実機WindowsやSafariの結果ではない。
 
