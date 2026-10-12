@@ -51,7 +51,7 @@ test('white space: responsive constellation has no overflow or obscured star con
     await expect(hole).toHaveCSS('mask-image',/^linear-gradient\(/)
     await expect(page.locator('.white-hole-void')).toHaveAttribute('fill','#000')
     // Measure the rendered light ring, not the SVG frame or its source radius.
-    const ringDiameter=await hole.locator('circle').first().evaluate(el=>{
+    const ringDiameter=await hole.locator('.photon-halo').evaluate(el=>{
       const circle=el as SVGCircleElement
       const transform=circle.getScreenCTM()!
       return 2*circle.r.baseVal.value*Math.hypot(transform.a,transform.b)

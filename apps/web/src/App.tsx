@@ -38,7 +38,7 @@ const tabs: {id:Page; label:string}[] = [
   {id:'search',label:'Universal Search'}, {id:'projects',label:'Projects'},
   {id:'connections',label:'Sources / Connections'}, {id:'imports',label:'Import History'}
 ]
-const headings:Record<Page,string> = {overview:'Your intelligence. In orbit.',search:'Universal Search',
+const headings:Record<Page,string> = {overview:'All intelligence. One gravity.',search:'Universal Search',
   conversations:'Conversation Library',projects:'Project Registry',connections:'Sources / Connections',imports:'Import History'}
 const time = (value:string|null) => value ? new Date(value).toLocaleString('ja-JP') : '日時未提供'
 const errorText = (err:unknown) => err instanceof Error ? err.message : 'Request failed'
@@ -276,7 +276,7 @@ export default function App() {
           <div><p className="eyebrow">ARK NEXUS <span> / </span> V1 UNIFIED HISTORY</p>
             <h1>{headings[page]}</h1><p className="intro">対話と知性が、ひとつの軌道に。<br/>出典を保った履歴を、このPCのワークスペースへ。</p></div>
           {page==='overview'?<div className="universe-note" aria-hidden="true"><span>WHITE SPACE / 01</span>
-            <p>A quiet space<br/>for connected thinking.</p><span className="note-line" /></div>:null}
+            <p>One center.<br/>Infinite connections.</p><span className="note-line" /></div>:null}
         </div>
         <section className={'workspace-map '+(page==='overview'?'orbit-map':'compact-map')}>
           <StarNav routes={tabs} page={page} onNavigate={setPage} />{page==='overview'?<SingularityHub />:null}
