@@ -6,7 +6,7 @@
 .cosmic-background{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;background:linear-gradient(135deg,#f8fafc 0%,#f0f4f9 46%,#fafbfe 78%,#f0f3f8 100%)}
 .cosmic-nebula{position:absolute;inset:0;background:radial-gradient(ellipse at 51% 42%,#fff 0%,#fff8 15%,transparent 43%),radial-gradient(ellipse at 17% 54%,#dbe9f580,transparent 55%),radial-gradient(ellipse at 85% 20%,#e4e4f270,transparent 53%)}
 .cosmic-stars{width:100%;height:100%;fill:#7c9bb5;stroke:#86a4bd;stroke-width:.7;opacity:.42}.distant-orbit{fill:none;stroke:#c3d1df;stroke-width:.7;opacity:.7}
-.skip-link{position:fixed;left:20px;top:-100px;z-index:10;padding:12px 20px;border-radius:8px;background:#fff;color:#273b50;box-shadow:0 4px 20px #283e5226}.skip-link:focus{top:16px}
+.skip-link{position:fixed;left:20px;top:16px;z-index:10;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;padding:0;border-radius:8px;background:#fff;color:#273b50;box-shadow:0 4px 20px #283e5226}.skip-link:focus{width:auto;height:auto;overflow:visible;clip-path:none;padding:12px 20px}
 .topbar{min-height:100px;padding:22px 4.5%;display:flex;gap:20px;align-items:center;justify-content:space-between;border-bottom:1px solid #cbd8e75e}
 .brand{display:flex;gap:14px;align-items:center}.brand b{font-size:16px;font-weight:650;letter-spacing:.22em}.brand small{display:block;margin-top:6px;font-size:8px;letter-spacing:.16em;color:var(--muted)}
 .brand-orbit{position:relative;display:grid;place-items:center;width:42px;height:42px;background:#fff9;border:1px solid #b9cbd9;border-radius:50%;font-size:20px;font-weight:500}

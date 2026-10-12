@@ -39,4 +39,17 @@ describe('White Singularity UI, locked synthetic-only workspace',()=>{
     expect(container.querySelector('.cosmic-background button, .cosmic-background [tabindex]')).toBeNull()
     expect(screen.getByText('SYNTHETIC ONLY')).toBeTruthy()
   })
+
+  it('clips the unfocused skip link instead of hiding it outside the screenshot viewport',async()=>{
+    // Node-only test I/O; no Node import enters the production app bundle.
+    const files = await import('node:'+'fs') as {readFileSync:(path:string,encoding:'utf8')=>string}
+    const style=document.createElement('style')
+    style.textContent=files.readFileSync('src/style.css','utf8')
+    document.head.appendChild(style)
+    try {
+      render(<App />)
+      const link=screen.getByRole('link',{name:'Skip to workspace'})
+      expect(getComputedStyle(link).clipPath).toBe('inset(50%)')
+    } finally { style.remove() }
+  })
 })

@@ -26,6 +26,9 @@ test('white space: all six native star routes retain keyboard focus while locked
   expect(privateReads).toEqual([])
   await nav.getByRole('button',{name:'Overview',exact:true}).click()
   await expect(page.locator('.stats strong')).toHaveText(['—','—','—','—'])
+  await expect(page.getByRole('link',{name:'Skip to workspace'})).toHaveCSS('clip-path','inset(50%)')
+  await page.evaluate(()=>window.scrollTo(0,0))
+  await expect(page.locator('.topbar')).toBeVisible()
   await page.screenshot({path:'test-results/overview-locked.png'})
 })
 
@@ -46,6 +49,7 @@ test('white space: responsive constellation has no overflow or obscured star con
   }
   expect(await page.locator('.star-link').first().evaluate(el=>getComputedStyle(el).transitionDuration)).toBe('0s')
   await page.getByRole('link',{name:'Skip to workspace'}).focus()
+  await expect(page.getByRole('link',{name:'Skip to workspace'})).toHaveCSS('clip-path','none')
   await page.keyboard.press('Enter')
   await expect(page.locator('#workspace-content')).toBeFocused()
 })
@@ -61,6 +65,10 @@ test('white space: real synthetic API snapshot and desktop singularity screensho
   for(const metric of await page.locator('.stats strong').allTextContents()) expect(metric).toMatch(/^[0-9,]+$/)
   await expect(page.getByText('SYNTHETIC ONLY',{exact:true})).toBeVisible()
   await expect(page.getByText('V1 GATE / BLOCKED',{exact:true})).toBeVisible()
+  // Unlock scrolls to its form; evidence must show the actual top of the home UI.
+  await page.evaluate(()=>window.scrollTo(0,0))
+  expect(await page.evaluate(()=>window.scrollY)).toBe(0)
+  await expect(page.locator('.topbar')).toBeVisible()
   await page.screenshot({path:'test-results/overview-desktop.png'})
   await page.getByRole('button',{name:'Lock workspace'}).click()
   await expect(page.locator('.stats strong')).toHaveText(['—','—','—','—'])
