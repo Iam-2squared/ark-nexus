@@ -1,4 +1,5 @@
-import { useId, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
+import { BlackHoleScene } from './BlackHoleScene'
 
 export type WorkspacePage = 'overview'|'search'|'conversations'|'projects'|'connections'|'imports'
 type ApiState = 'loading'|'ready'|'unavailable'|'locked'
@@ -16,115 +17,6 @@ export function CosmicBackground() {
       <path className="distant-orbit" d="M-100 720Q620-170 1550 460M-140 940Q730 220 1580 780" />
     </svg>
   </div>
-}
-
-const lensCurve='M-200 516C170 484 382 478 480 438C542 410 512 359 542 269C581 163 673 146 800 146C927 146 1019 166 1058 269C1088 359 1058 410 1120 438C1218 478 1430 484 1800 516'
-const frontDisk='M-200 516C185 450 550 434 800 434C1080 434 1400 470 1800 516C1450 630 1140 690 800 692C460 692 136 628-200 516Z'
-const lensBands=Array.from({length:32},(_,i)=>i)
-const diskBands=Array.from({length:38},(_,i)=>i)
-const inflowCurves=[
-  'M-160 168C160-65 1310-134 1640 210C1880 465 1380 792 1055 661C886 593 821 507 800 452',
-  'M1760 718C1290 1104 86 952 60 479C48 273 468 250 621 324C731 377 782 430 800 452',
-  'M-220 684C330 920 1545 991 1650 486C1730 110 1040 98 922 296C856 407 825 438 800 452',
-]
-const dust=Array.from({length:42},(_,i)=>{
-  const angle=i*2.399
-  return {x:800+Math.cos(angle)*(360+i%7*68),y:445+Math.sin(angle)*(195+i%6*38),r:i%5===0?2.4:1}
-})
-
-// Bounded static vectors: no animation loop, textures, network or simulation.
-function WhiteBlackHole() {
-  const id=useId()
-  return <svg className="white-hole-visual" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
-    <defs>
-      <linearGradient id={id+'-light'} x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0" stopColor="#65829f" stopOpacity="0" />
-        <stop offset=".16" stopColor="#8ca7c5" stopOpacity=".55" />
-        <stop offset=".37" stopColor="#e2edff" />
-        <stop offset=".52" stopColor="#fff" />
-        <stop offset=".68" stopColor="#b5c9e5" />
-        <stop offset=".86" stopColor="#809cb9" stopOpacity=".55" />
-        <stop offset="1" stopColor="#65829f" stopOpacity="0" />
-      </linearGradient>
-      <linearGradient id={id+'-disk'} gradientUnits="userSpaceOnUse" x1="0" y1="430" x2="0" y2="710">
-        <stop offset="0" stopColor="#fff" />
-        <stop offset=".18" stopColor="#dce8f9" />
-        <stop offset=".36" stopColor="#9eb5d0" />
-        <stop offset=".5" stopColor="#edf4ff" />
-        <stop offset=".7" stopColor="#829cbf" stopOpacity=".8" />
-        <stop offset="1" stopColor="#e6edf8" stopOpacity="0" />
-      </linearGradient>
-      <radialGradient id={id+'-rim'}>
-        <stop offset=".83" stopColor="#829dbc" stopOpacity="0" />
-        <stop offset=".92" stopColor="#7998bc" stopOpacity=".65" />
-        <stop offset=".95" stopColor="#fff" />
-        <stop offset="1" stopColor="#dce7f5" stopOpacity="0" />
-      </radialGradient>
-      <radialGradient id={id+'-field'}>
-        <stop offset=".3" stopColor="#8099b2" stopOpacity="0" />
-        <stop offset=".44" stopColor="#8ca5c2" stopOpacity=".36" />
-        <stop offset=".65" stopColor="#c5d5e6" stopOpacity=".2" />
-        <stop offset="1" stopColor="#fff" stopOpacity="0" />
-      </radialGradient>
-      <filter id={id+'-glow'} x="-15%" y="-40%" width="130%" height="180%" colorInterpolationFilters="sRGB">
-        <feGaussianBlur stdDeviation="14" />
-      </filter>
-      <filter id={id+'-grain'} x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
-        <feTurbulence type="fractalNoise" baseFrequency=".025 .15" numOctaves="2" seed="7" result="grain" />
-        <feColorMatrix in="grain" type="saturate" values="0" />
-        <feComponentTransfer result="soft-grain">
-          <feFuncR type="linear" slope=".22" intercept=".39" />
-          <feFuncG type="linear" slope=".22" intercept=".39" />
-          <feFuncB type="linear" slope=".22" intercept=".39" />
-        </feComponentTransfer>
-        <feBlend in="SourceGraphic" in2="soft-grain" mode="soft-light" />
-      </filter>
-      <clipPath id={id+'-volume-clip'}><path d={frontDisk} /></clipPath>
-      <linearGradient id={id+'-fade'} x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0" stopColor="#fff" stopOpacity="0" />
-        <stop offset=".1" stopColor="#fff" /><stop offset=".9" stopColor="#fff" />
-        <stop offset="1" stopColor="#fff" stopOpacity="0" />
-      </linearGradient>
-      <mask id={id+'-disk-mask'} maskUnits="userSpaceOnUse" x="-200" y="0" width="2000" height="900">
-        <rect x="-200" width="2000" height="900" fill={'url(#'+id+'-fade)'} />
-      </mask>
-    </defs>
-    <circle className="gravity-field" cx="800" cy="445" r="680" fill={'url(#'+id+'-field)'} />
-    <g className="gravity-inflow" fill="none" stroke={'url(#'+id+'-light)'}>
-      {Array.from({length:12},(_,i)=><path key={i} d={inflowCurves[i%3]} strokeWidth={i%3===0?1.4:.6}
-        opacity={.26+i%3*.08} transform={`translate(800 450) scale(${1+Math.floor(i/3)*.09}) translate(-800 -450)`} />)}
-    </g>
-    <g className="gravity-dust" fill="#86a3c2" opacity=".55">
-      {dust.map((point,i)=><circle key={i} cx={point.x} cy={point.y} r={point.r} opacity={.3+i%4*.16} />)}
-    </g>
-    <g transform="rotate(-9 800 450)">
-      <g className="white-hole-glow" filter={'url(#'+id+'-glow)'} fill="none" stroke={'url(#'+id+'-light)'}>
-        <path d={lensCurve} strokeWidth="100" opacity=".85" />
-        <path d="M-200 514Q800 355 1800 514" strokeWidth="70" opacity=".65" />
-      </g>
-      <g className="lensed-light" fill="none" stroke={'url(#'+id+'-light)'}>
-        <path d={lensCurve} strokeWidth="58" opacity=".72" />
-        <path d={lensCurve} stroke="#fff" strokeWidth="24" opacity=".85" />
-        {lensBands.map(i=><path key={i} d={lensCurve} strokeWidth={i%5===0?3.2:1}
-          opacity={.25+i%6*.12} transform={`translate(800 480) scale(${1+i*.006}) translate(-800 -480)`} />)}
-        <path d={lensCurve} stroke="#fff" strokeWidth="6" />
-        <path d="M340 540C450 536 514 671 596 708C717 772 885 772 1008 708C1090 671 1155 536 1260 540"
-          strokeWidth="18" opacity=".32" />
-      </g>
-      <circle className="photon-halo" cx="800" cy="440" r="338" fill={'url(#'+id+'-rim)'} />
-      <circle className="white-hole-void" cx="800" cy="440" r="310" fill="#000" />
-      <circle className="photon-edge" cx="800" cy="440" r="311" fill="none" stroke="#f7fbff" strokeWidth="4" />
-      <g className="accretion-front" mask={'url(#'+id+'-disk-mask)'}>
-        <g className="accretion-volume" clipPath={'url(#'+id+'-volume-clip)'}>
-          <path d={frontDisk} fill={'url(#'+id+'-disk)'} filter={'url(#'+id+'-grain)'} />
-        </g>
-        {diskBands.map(i=><path key={i} fill="none" stroke={i%4===0?'#fff':'url(#'+id+'-light)'}
-          strokeWidth={i%7===0?5:i%4===0?2.2:.8} opacity={i%4===0?.88:.42+i%3*.15}
-          d={`M-200 ${506+i*1.35}C200 ${438+i*4.7} 550 ${430+i*6.5} 800 ${430+i*6.5}S1490 ${457+i*4.1} 1800 ${510+i*1.35}`} />)}
-        <path d="M-200 502C205 437 550 424 800 424S1410 457 1800 502" fill="none" stroke="#fff" strokeWidth="9" />
-      </g>
-    </g>
-  </svg>
 }
 
 function RouteIcon({page}:{page:WorkspacePage}) {
@@ -157,7 +49,7 @@ export function SingularityHub() {
   return <div className="singularity-hub" role="img" aria-label="White Singularity · ARK Nexusの中心核">
     <div className="hub-coordinate" aria-hidden="true">01 / WHITE SINGULARITY</div>
     <div className="singularity-visual" aria-hidden="true">
-      <WhiteBlackHole />
+      <BlackHoleScene />
     </div>
     <div className="hub-caption" aria-hidden="true"><b>NEXUS</b><span>EVERY THREAD. ONE GRAVITY.</span></div>
   </div>

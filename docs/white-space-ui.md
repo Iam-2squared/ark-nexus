@@ -1,38 +1,40 @@
 # White Space / White Singularity — UI base
 
-2026-10-12。対象はARK Nexusだけ。これはUI方向性を確認するためのアプリシェルで、V1公式完了・実形式対応・ユーザーWindows実機の証拠ではない。
+2026-10-12。対象はARK Nexusだけ。UIの方向性を確認するアプリシェルで、V1公式完了・実形式対応・ユーザーWindows実機の証拠ではない。
 
-## デザインと構造
+## 現在の描画
 
-- 背景は所有者の追加指定に合わせた単色の白。ごく薄い22個のSVG星と軌道線だけを残し、以前の霧・背景gradientは廃止。画像、外部font、Canvas/WebGL、3D library、追加packageは使わない。
-- Overview中央のWhite Singularityは、黒い空洞、厚い重力レンズ、白/銀/薄い青の降着円盤を主役にする。現在の構成は32本の曲がる光、38本の前景disk線、12本の中心へ巻き込む軌道、42個の固定粒子、広いradial halo。2個の静的SVG filter（blurと弱めた2-octave grain）で光の厚みと質感を作る。`useId`でgradient/mask/filterをHubごとに分離する。参考画像自体はpublic repoに保存しない。ARK Nexusの知性の中心を示す象徴で、物理simulationや実行中AIの表示ではない。
-- 固定左sidebarを廃止。6個のラベル付き星ノードを中心の周囲に置く。他5画面では同じDOMのナビをコンパクトな星座帯として維持し、選択後もkeyboard focusが失われない。
-- 4 metricは半透明のOrbit panel。APIから取得した保存済み件数だけを表示する。取得前/lock後は「—」、API unavailable時は既存の取得時刻付きsnapshotとして扱う。デモ用の架空件数は追加しない。
-- 現在のAPI状態はheaderに表示。synthetic-only / live sync off / V1 BLOCKEDを明示し、実アカウント接続や自動タスク実行を示唆する操作を置かない。
+所有者の追加指定「線の模様をなくし、写真のような質感にする」に合わせ、32/38本のSVG帯、12本のinflow線、固定粒子を廃止。Overviewの主役はローカルのWebGL2 fragment shaderに変更した。黒い中心、傾いた白い降着円盤、重力レンズ、ガスの濃淡を3D座標から描く。背景は単色白を維持する。
 
-`components/CosmicShell.tsx`のAppShell / CosmicBackground / StarNav / SingularityHub / StatusConstellation / MetricCard / OrbitPanelを再利用する。ページの認証、CSRF header、session epoch、late-response rejection、import/search/project/paging handlersは変更しない。
+`singularity.frag.glsl`は200回を上限とする近似光線追跡、有限のガス体積、4段階の決定的noiseを用いる。光線の曲がりと体積内の吸収/発光が明暗と奥行きを作る。世界観を表現するartistic approximationであり、天体物理の計算証拠やAIの実行状態ではない。参考写真・poster・文字はpublic repoに追加しない。生成AIサービス、外部画像、外部font、追加package、3D libraryは使用しない。コードと描画検証用成果物はNexus workspace内に限定する。
 
-## 操作・レスポンシブ
+`BlackHoleScene` / `singularityRenderer`を共通Hubから呼ぶ。通常は一度だけ描画し、animation loopは動かさない。サイズが変わった時だけ100ms debounceで再描画し、同じbufferサイズなら描画しない。最大900,000 pixels、DPR 1.25、1600×900以下。Overviewを離れた時に所有するshader/program/context、observer/listener/timerを解放する。
 
-Desktopは周辺に星ノード、mobileはコアの下に3列×2行のラベル付きノード。狭い画面でも6導線を隠さない。native button、aria-current、navigation landmark、skip-to-main、focus-visibleを使用し、装飾SVGを操作対象から除く。主要buttonは44px以上。静的表示を基本にし、prefers-reduced-motionでhover transitionも無効化する。forced-colorsでは装飾より境界・focusを優先する。
+WebGL2未対応、compile/link/uniform/draw失敗、context lossでは簡素な黒いSVGとgas volumeへ戻す。これは写真相当の描画とは区別し、`data-renderer`がfallbackのままなら実shader PASSにしない。診断にGPU/driverの情報や例外本文を出さない。forced-colorsでは装飾を隠す。全体は静止画として成立し、reduced-motionでも使用できる。
 
-現在は所有者の「壮大・全てを飲み込むオーラ」に合わせ、Hubを画面幅に近い最大1320px・高さ600px、星ナビ領域を600pxに拡大する。中心はSVG内r=310の黒、photon haloはr=338。画面を横断する円盤と周辺から中心へ曲がる軌道を重ね、見出しは短くして主役へ視線を集める。mobileは390pxの描画領域と466pxのナビ開始位置。SVGを固定枠内に収めて横overflowを防ぎ、光の両端はsoft maskで消す。星ナビには白い半透明の背景を付け、光や黒い領域の前でもラベルとfocusを読めるようにする。
+## 操作・レイアウト
 
-英字の小さな座標/番号は装飾。本文・運用ラベル・警告は可読性を優先する。セキュリティ/機能の未検証状態をグローや成功色だけで判定させない。
+画面幅に近い最大1320px、高さ600pxのHubを6個の星ノードが囲む。mobileは390pxの描画領域の下に3列×2行の導線を表示する。黒い中心の拡大、縦横soft mask、captionのscene内配置を維持し、光でラベルを読めなくしない。GPU描画は画面の縦横比に応じてcamera focal lengthを調整し、狭い幅で核全体が切れないようにする。
+
+他5画面では同じDOMのナビをコンパクトに表示する。native button、aria-current、navigation landmark、skip-to-main、focus-visible、44px以上のtargetを保持する。装飾SVG/canvasはaria-hidden・非focusable・pointer-events none。認証、CSRF header、session epoch、late-response rejection、import/search/project/paging handlersは変更しない。
+
+4 metricは実際のAPI件数だけを表示し、取得前/lock後は「—」。API unavailable時は既存の取得時刻付きsnapshotとして扱う。synthetic-only / live sync off / V1 BLOCKEDを明示し、未接続の実アカウントやWorkタスクを取得済みと表示しない。
 
 ## 評価と証跡
 
-既存DOM20件、Chromium2シナリオ、backend/Linux/Windows Gateは保持。追加DOM8件は中心核・未知件数・6導線・focus・未認証のprivate requestゼロ・装飾の非操作性、未focusのskip linkのclip、光の両端のsoft mask、重力fieldの2軸fade/captionのscene内配置を確認する。形状・背景の追加2件は修正前に失敗を確認し、空洞/曲がる光/前景disk、文字・raster画像なし、複数HubのSVG ID非衝突、単色白背景/霧なしを固定する。中心色の期待値は所有者の指定により白から黒へ変更し、既存の機能評価は変更しない。
+既存のApp DOM20件、Chromium2シナリオ、backend/Linux/Windows Gateは保持。追加UI DOM8件は背景・soft mask・caption・黒いfallback・6導線・focus・未認証requestゼロ・未知件数を確認する。旧SVGのpath本数条件は、所有者が拒否した線を廃止するために変更した。写真の見え方をSVG path数でPASSにせず、実描画のpixel検証に置き換える。
 
-追加Chromium3シナリオで、locked状態の6導線/keyboard focus、320/390/768/1024/1440px全ページの横overflowとclick、reduced-motion/skip link、実際の合成API取得/lockを検証する。さらに、5幅でSVGの画面内収まり・単色白背景・黒い中心、文字/画像なし・装飾による操作遮断なしをassertする。最終HEADのCIと画像確認が終わるまで実ブラウザーPASS/参考画像への適合確認済みとはしない。
+新たなrenderer単体8件は、context拒否、compile/link/uniform失敗、buffer上限、idle中の重複描画なし、リソース解放、非有限寸法、context loss/draw失敗を確認する。uniform欠損、NaN/Infinity寸法、StrictModeのeffect再実行前にcontextを失う問題は追加テストで失敗を再現してから修正した。shader/programは毎回解放し、context自体はcanvasがDOMから外れた時だけ解放する。Vitest合計36件（DOM28 + renderer8）。
 
-円の拡大はSVG枠の寸法だけでなく、実際の光の輪の直径をscreen CTMから計測する。5幅の最低直径は順に120/150/220/275/275px。既存のクリック・focus・overflow・認証/合成取り込み条件は緩めない。最終画像で輪の見え方とナビの可読性も確認する。
+追加Chromium4シナリオで、locked状態の6導線/keyboard focus、320/390/768/1024/1440pxの全ページ操作とoverflow、実際の合成API/lock、実WebGL context lossとWebGL拒否時の操作を検証する。shaderが実際に動いたことを必須とし、framebufferの黒い領域/明るい光の割合とbuffer上限を検査する。黒い核の実pixel幅は5幅で120/150/220/275/275px以上（以前の輪の最低直径をそのまま維持し、枠やhidden SVGから計測しない）。fallbackはこれとは別に検証する。初回/resize後の実shader確認には20秒の上限を設け、既存の機能期待値/timeoutを緩めない。
 
-現在の直径計測は`.photon-halo`を対象にする。広い背景auraや粒子のcircleが追加されても、装飾全体を輪の大きさと誤認しないための対象明示であり、最低直径は変更しない。grainは固定seed・2 octaves・弱いcontrastで静的に描く。animation loop、Canvas/WebGL、画像/フォント取得、追加package、AI実行は使用しない。実ブラウザーで描画時間・スクロール・見た目を確認し、所有者Windows/Safariの動作は別Gateのまま。
+実ブラウザー合計6シナリオ。Playwrightのsynthetic localhostテストだけは、GPUのないrunnerで[Chromium公式のSwiftShader flags](https://chromium.googlesource.com/chromium/src/+/main/docs/gpu/swiftshader.md)を指定する（確認日2026-10-12）。ownerのprivate browserへのflag設定は実装・推奨しない。最終HEADのCIと画像確認が終わるまでChromium PASSや参考画像への適合確認済みとはしない。ソフトウェアMesaによるworkspace内のoffscreen shader確認はコードの描画確認であり、ブラウザー/ユーザーWindows実機の結果ではない。ユーザーWindows/Safari/低性能GPUの性能は未検証。
 
-CI artifactは明示した4枚の合成PNGだけを1日保存する：overview-mobile.png / connections-desktop.png（既存）、overview-desktop.png / overview-locked.png（追加）。private profile、DB、key、trace、raw exportはartifactに含めない。Desktop PNGは1440×1000のviewport、mobile PNGは既存390pxのfull page。実機WindowsやSafariの結果ではない。
+CI artifactはallowlistの4枚の合成PNGだけを1日保存：overview-mobile.png / connections-desktop.png / overview-desktop.png / overview-locked.png。実shaderの完了後にdesktop1440×1000とmobile390px full-pageを保存する。DB/key/private profile/trace/raw exportはartifactに含めない。現在HEADのCI URL・結果はDraft PR #1に記録する。
 
-今後のUI課題：所有者による世界観レビュー、中央核/文字量のバランス、mobileの情報優先順位、全ページの密度調整、実機ブラウザー/assistive technologyの追加確認。機能追加や未検証Gate解除とは別の作業として扱う。
+次のUI課題は所有者による質感レビュー、実機GPUの初回描画時間、mobileの余白と情報密度、他5ページのデザイン細部。実形式AdapterとWindows owner Gateは引き続きBLOCKED/NOT RUN。
+
+## 以前の検証履歴（現在HEADのPASSには流用しない）
 
 最初のUI source 2e5e82c27bcf79a900cab231820459ccea3bee9cのrun38199394107は5/5 PASS（DOM23/build/Chromium5、backend既存件数）。画像確認で、unlock後のscroll位置によるdesktop画像先頭切れと、負のtopによる未focus skip linkのfull-page画像写り込みを確認した。追加DOM回帰を失敗再現してclip方式に修正し、focused link表示・画像先頭位置を追加Chromiumでassertする。既存評価を緩めず、仕上げHEADには別のCI証拠を要求する。
 

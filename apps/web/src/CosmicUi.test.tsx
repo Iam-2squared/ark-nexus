@@ -23,7 +23,7 @@ describe('White Singularity UI, locked synthetic-only workspace',()=>{
     } finally { style.remove() }
   })
 
-  it('softens the enlarged light disk at the SVG frame edges',async()=>{
+  it('softens the enlarged light disk at the scene frame edges',async()=>{
     const files = await import('node:'+'fs') as {readFileSync:(path:string,encoding:'utf8')=>string}
     const style=document.createElement('style')
     style.textContent=files.readFileSync('src/style.css','utf8')
@@ -35,15 +35,19 @@ describe('White Singularity UI, locked synthetic-only workspace',()=>{
     } finally { style.remove() }
   })
 
-  it('draws a black void with bent light and a foreground disk rather than a lettered sphere',()=>{
+  it('provides a noninteractive canvas and quiet black fallback without the rejected line pattern',()=>{
     const {container}=render(<><SingularityHub /><SingularityHub /></>)
-    const visuals=container.querySelectorAll('svg.white-hole-visual')
+    const visuals=container.querySelectorAll('.white-hole-visual')
     expect(visuals).toHaveLength(2)
     for(const visual of visuals) {
       expect(visual.getAttribute('aria-hidden')).toBe('true')
+      expect(visual.getAttribute('data-renderer')).toBe('fallback')
+      expect(visual.querySelector('canvas')?.getAttribute('aria-hidden')).toBe('true')
+      expect(visual.querySelector('canvas')?.hasAttribute('tabindex')).toBe(false)
       expect(visual.querySelector('.white-hole-void')?.getAttribute('fill')).toBe('#000')
-      expect(visual.querySelectorAll('.lensed-light path').length).toBeGreaterThanOrEqual(12)
-      expect(visual.querySelectorAll('.accretion-front path').length).toBeGreaterThanOrEqual(12)
+      expect(visual.querySelector('.gravity-inflow,.lensed-light,.accretion-front')).toBeNull()
+      expect(visual.querySelector('path')).toBeNull()
+      expect(visual.querySelector('ellipse')).toBeTruthy()
       expect(visual.querySelector('text,image,foreignObject')).toBeNull()
     }
     const ids=[...container.querySelectorAll('svg defs [id]')].map(n=>n.id)
