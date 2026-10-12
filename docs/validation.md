@@ -1,0 +1,116 @@
+# V1 evaluation definition and evidence
+
+## Current mega-batch evidence pointer
+
+Storage NEXT start: sourcef6650024ac254ddc2e68104ce851fdf40f918b09 /
+run38254117100 passed5/5: Linux878/3 platform SKIP, Windows879/2 platform SKIP,
+Ruff4, DOM47/build/Chromium7. [Storage NEXT evidence](storage-next-2026-10-12.md)
+adds135 regressions, fixture/header diagnosis and a distinct modified-page DELETE
+positive control. Historical10k remains UNRESOLVED; OS physical storage and owner
+gates remain unqualified. These start results are not the changed source's CI.
+
+Forensic follow-up start: source18e61002a7f89bc065c296e100a574bf10ff1ac4 /
+run38235807198 passed5/5: Linux697 PASS/3 platform SKIP each, Windows698 PASS/
+2 POSIX SKIP each, Ruff, DOM47/build/Chromium7. The unchanged fixed10k test's
+retained persisted-state discrepancy remains OPEN/BLOCKED despite that CI.
+[Forensic evidence](forensics-2026-10-12.md) separates observed/unobserved
+comparisons, independent refusal fixes and mode-specific native gates. New
+source-HEAD CI must be verified separately. Official V1 remains BLOCKED.
+
+NEXT batch start: source79e56eb20a581825b0ce2392c82fc0d7127918fa /
+run38219581039 passed5/5: Linux512 PASS/3 platform SKIP each, Windows513 PASS/
+2 platform SKIP each, Ruff in all four, DOM47/build/Chromium7. This exact-source
+baseline is retained. The [NEXT batch](next-batch-2026-10-12.md) adds independent
+SQL/native/import/integrity/receipt/disabled-contract tests; its source HEAD needs
+its own complete CI/artifact evidence in Draft PR1. UI code and original gates
+are unchanged. V1 remains BLOCKED.
+
+Earlier source7969166 / run38218729066 passed5/5 (DOM45/build/Chromium7 and four
+backends). Navigation review then reproduced empty-hash Back/forward and
+unknown-anchor handling before source79e56eb and its separate run above.
+
+First batch source79c1abe / run38218223288 had4/5 PASS: four backends and DOM44/build
+passed, Chromium6/7. The added exact conversation-filter label failed. One
+additional DOM reproduction preceded explicit aria-labels on the two selects;
+DOM45/build PASS locally, unchanged seven scenarios/30s timeout. Follow-up CI
+requires independent source-HEAD verification; see the batch evidence below.
+
+The 2026-10-12 [batch report](megabatch-2026-10-12.md) distinguishes current
+implementation/local synthetic results from historical runs below. Original
+fixtures/gates are retained; final source-HEAD CI and reviewed artifact evidence
+are recorded in Draft PR1. Temp qualification remains [partially BLOCKED](temp-containment.md).
+
+The initial PASS evidence and test fixture files are preserved. New regression cases add coverage; they do not replace or weaken the existing 1,000-message reimport or 30 token-search assertions.
+
+Baseline inspected: branch feature/v1-unified-history-scaffold at a2aa0e9c739380695842973b2a095e8f195dd354; main 91a493a9ffb636c85b016874f1f721685adab12e. Only Draft PR #1 was open and no reviews/comments were present. GitHub Actions run 38116378322 passed all 5 jobs. Earlier run 38116329877 failed Ruff F841 for an unused variable; that baseline failure had already been corrected.
+
+## Frozen completion gates
+
+| Evaluation | Required result | Evidence / state |
+|---|---|---|
+| Backend CI | Linux/Windows x Python 3.12/3.13 all PASS at the new HEAD | Final GitHub run must be checked after commit |
+| Frontend | TypeScript/Vite build PASS | Local build PASS; new-HEAD CI required |
+| 1,000-message reimport | Zero additional conversations/messages; 1,000 duplicates reported | Original test retained and PASS locally |
+| Search regression | Original fixed 30 token assertions plus additive fixed 30 mixed-language cases | PASS locally; new cases include Japanese short strings, literal %, _, backslash, quotes, filters and provider/account isolation |
+| Provider distinction | Source/provider/account IDs and original message/conversation IDs preserved | Automated provenance/isolation checks |
+| Abnormal input | Safe rejection and full transaction rollback | Host/Origin/body, archive, JSON, Unicode, timestamp and identity tests |
+| Stored history integrity | Detect index gaps/duplicates/staleness and content hash mismatch; preserve recovery | Integrity, concurrent imports/migrations, copy-to-new-location roundtrip tests |
+| Actual provider formats | Approved anonymized current ChatGPT and Claude samples PASS | **BLOCKED for both**; no samples provided |
+
+Updated migration assertions now require versions [1,2], because an additive migration was introduced; repeatability remains required. This is not a relaxed schema or import gate.
+
+## Reproduction
+
+Backend:
+
+    python -m pip install -e ".[dev]"
+    python -m pytest -q --basetemp=.pytest-tmp
+    python -m ruff check .
+
+Frontend (apps/web):
+
+    npm ci --no-audit --no-fund
+    npm test
+    npm run build
+
+The frontend DOM tests exercise local authentication, UI requests, provenance, imports, disabled connectors and failure states with synthetic HTTP responses. jsdom file-validation behavior differs from a native browser, so upload form handlers are exercised after file selection; actual file validation/submit behavior is separately tested by Chromium. They do not replace real Chromium layout, cross-browser behavior or owner-machine offline evidence. Local Playwright execution could not start because Chromium was absent and the download returned invalid archives; no local browser PASS is claimed. GitHub Actions runs two real Chromium API/UI scenarios, including authenticated 1,000-message import/reimport, project mapping, Japanese search, long-history paging, inert imported HTML, mobile overflow and lock behavior. Its current-HEAD result must be verified before claiming browser PASS.
+
+Windows POSIX permission assertions are explicitly skipped because they cannot verify Windows ACLs. Symlink tests can skip when the runner lacks creation rights; report those separately from executed checks.
+
+First expanded-CI run 38118124755 at adbb95b15b5c6e03a5f424a5e4b1d7afbecbbaf5 failed 3/5 jobs. Both Windows jobs hit the 32,767-character environment-variable limit because pytest expanded a large ZIP byte parameter into a case name. Explicit short case IDs retain the exact archive contents and rejection assertions. Chromium completed the 1,000-message import/reimport and message paging, then failed to locate the exact search project label. Explicit filter aria-labels fix the label association; the browser assertion and timeout remain unchanged. Additional key-file failures were reproduced before fixing validation, and NTFS junction rejection is covered by a platform-independent regression and a real Windows-only filesystem test. These failures are retained as evidence; final new-HEAD CI must pass.
+
+The integrity-check UI also retained an unlocked snapshot after a 401; a failing DOM reproduction was added before routing that error through the shared lock/clear handler. Each new integrity check clears its previous result before requesting fresh evidence.
+
+Run 38118467273 at 9355166c61d17c04e8a1c40b64e50d2c325dc941 confirmed the ZIP-case-name fix and real Windows NTFS-junction rejection, but still failed 3/5 jobs. Windows raises EACCES for an exclusive-open directory, so the non-file check now precedes opening as well as handling EEXIST. Chromium reached the integrity result after completing Japanese search/pagination; its generic status locator was ambiguous with the retained import receipt result. Distinct accessible result labels and a failing combined-result DOM reproduction preserve both expected result assertions. No result count, browser timeout or abnormal-input gate was reduced.
+
+Run 38118614549 at 172be9d09efc3f58febccb88e94b61562f162028 passed all 5 jobs, including 2 actual Chromium scenarios, 16 DOM tests, build and all four backend environments (120 passed plus one platform-specific skip each). Independent synthetic-input audit then reproduced unhandled zlib.error and LZMAError for corrupt compressed ZIP streams. New DEFLATE/LZMA/BZip2 regression cases require generic HTTP 422 and zero stored sources/conversations/messages/import receipts. Decompression errors are converted to ImportProblem before any store operation; the follow-up HEAD must receive its own CI evidence.
+
+V1 official PASS stays **BLOCKED** until the actual-format and remaining private-data security gates pass. Do not report a percentage without a separately agreed gate-weighting method.
+
+## 2026-10-11 continuation: additive security and machine evidence
+
+Start-of-run re-read: main 91a493a9ffb636c85b016874f1f721685adab12e; only open Draft #1, branch feature/v1-unified-history-scaffold, HEAD 4c72225a24a0fbc187b565bbb7063006d7734b6a. No reviews/comments. Run 38118765644 passed 5/5: each backend 123 passed + 1 platform-specific skip; DOM16/build/Chromium2 passed. These are historical facts, not evidence for the follow-up HEAD.
+
+Additive failing reproductions covered SQLite hardlinked sidecars, unclosed copy connections, logically corrupt FTS accepted as a backup, CLI traceback/path exposure, shared POSIX storage directories, nonportable Windows ADS/device/alias names, JSON exponent overflow, and late UI responses after locking/unlocking. The fixes preserve the original fixtures, initial migration, 1,000-message reimport, fixed30 + additive30 search expectations and original16 DOM/2 Chromium scenarios.
+
+The new synthetic machine probe runs real child-process cold starts/restarts/restored-path API checks, auth/Host/Origin/CSRF, Japanese import/search/reimport, and Windows-only owned listener/DACL inspection. Evidence is allowlisted JSON; test profile, DB/key and private sentinel inputs cannot enter logs/artifacts. Windows uses only a new owned empty test directory for ACL changes. Linux skips Windows DACL/listener *subchecks* inside the probe; those differ from pytest skips. New POSIX shared-directory regression is additionally skipped on Windows.
+
+Run user-machine verification using [the Windows guide](windows-machine-validation.md). No user PC has been accessed. Actual owner Windows/offline/browser/other-user/private-profile gates remain NOT RUN; actual ChatGPT/Claude samples remain BLOCKED. A fabricated offline flag in GitHub Actions cannot promote the owner-machine Gate. Real parser contracts/tests are disabled scaffolding, not real-format PASS.
+
+Local Linux/Python3.12: 150 passed + 1 NTFS-only skip; Ruff PASS. DOM20 and TypeScript/Vite build PASS. Current-HEAD GitHub results must be verified before reporting all-environment PASS. The continuation report is recorded in the Draft PR rather than assigning a percentage. Retention/deletion/encryption remain [documented and inactive](retention-and-deletion-design.md).
+
+Run 38124120191 at ce463953fc7141330dbe4ee315e12526d548ae60 completed 3/5 PASS. Both Linux environments and DOM20/build/Chromium2 passed. Both Windows jobs ran 148 PASS / 2 SKIP / 1 FAIL in the new machine-probe test. Its redacted artifacts showed all seven API/restart/restore/listener gates PASS and final owned-test ACL FAIL. Root protection succeeded. Windows Python's mkdir(0o700) applies a separate current-user/admin DACL instead of retaining the explicit SYSTEM grant from the protected root ([Python documentation](https://docs.python.org/3.12/library/os.html#os.mkdir), checked 2026-10-11). The probe now precreates only its three new empty synthetic children with the protected root's inherited DACL. Existing application/profile ACLs and all mandatory allowlist/owner/full-grant assertions are unchanged. The follow-up HEAD requires its own complete CI run; this failure is retained as evidence.
+
+Run 38124406818 at 4680e190b3f24b6dcf59b3c61f850ba4cf6aeb16 passed 5/5: Linux150+1 skip each, Windows149+2 skips each, Ruff, DOM20/build/Chromium2. Both Windows artifacts passed eight synthetic gates and retained six owner/real-format gates NOT RUN; reports were inspected for path/identity/key/content leaks. Final CLI audit then reproduced argparse echoing unknown argument values in both backup and probe commands. Two added regressions require exit2, no value/path/traceback, and no files created. A shared parser supplies a fixed diagnostic; the follow-up HEAD must obtain its own CI evidence. Existing test assertions remain unchanged.
+
+## 2026-10-11 next continuation: lifecycle and acceptance review
+
+Fresh start: source HEAD 4e5df0245f0bf490b2ade8ebc87bb0add5ea8b60, main 91a493a9ffb636c85b016874f1f721685adab12e, only open Draft PR #1, clean working tree, no reviews/comments. Run 38124894155 at that exact source HEAD passed 5/5: Linux152+1 skip each, Windows151+2 skips each, Ruff, DOM20/build/Chromium2. Main branch metadata reports protected=false and rulesets=[]; detailed protection read returned integration403, so its details are unverified. No settings were changed.
+
+Additive failing reproductions cover startup Ctrl+C leaving a child alive, interruptions escaping the redacted CLI, accepting a different workspace root, inherited Git variables redirecting context/index updates, malformed inspection values, mismatched Provider/Product, invalid review/version metadata, contradictory coverage, and unknown contract/trust. Fixes stop only the owned child, classify interruptions without exception text, validate workspace/Git-directory scope, disable Git optional index writes, and require strict inspection booleans. Owner probes additionally refuse dirty or elevated checkouts before creating test files.
+
+43 added cases include busy port and permission refusal, no external Git-directory traversal, actual Windows operator/junction helpers, and bounded count-only contract dry-run with collision/hash/Unicode/time/version/error regressions. The dry-run uses invented normalized objects only; it never enables a provider parser or touches accounts/DB/commands. Original fixtures, initial migrations, 1,000-message reimport, fixed30+30 searches and DOM20/Chromium2 are unchanged.
+
+Local Linux/Python3.12: 193 passed, 3 skipped, Ruff PASS. Linux skips are the existing real NTFS junction test plus two new Windows token/junction helper tests. Windows retains the two POSIX-only mode skips; its new helper cases must execute in CI. The probe's two Linux Windows-only subcheck SKIPs are separate from pytest SKIPs. Final source-HEAD CI and artifact contents must still be verified after commit and recorded in PR #1; this local result is not evidence for Windows or the owner PC.
+
+The owner checklist and storage-surface/encryption comparison are acceptance/design work only. Actual user Windows offline/UI/other-user/default-profile ACL remains NOT RUN. Real samples are absent, both actual adapters remain BLOCKED/disabled. SQLite is plaintext; private multipart/SQLite temp containment, encryption, retention/undo/deletion are not enabled or qualified. Official V1 remains BLOCKED.

@@ -1,0 +1,70 @@
+name: CI
+permissions:
+  contents: read
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.12', '3.13']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[dev]"
+      - name: Prepare checkout-local synthetic temporary parent
+        run: python -c "from pathlib import Path; from nexus.private_storage import checked_path; checked_path(Path('tmp')).mkdir(mode=0o700, exist_ok=True)"
+      - run: python -m pytest -q --basetemp=tmp/pytest-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Bounded fixed-10k forensic comparison
+        run: python -m nexus.data_forensics --scopes single --root tmp/forensics-${{ github.run_id }}-${{ github.run_attempt }} --source-head "${{ github.event.pull_request.head.sha || github.sha }}"
+      - name: Synthetic SQLite statement and native VFS evidence
+        run: python -m nexus.sqlite_probe --source-head "${{ github.event.pull_request.head.sha || github.sha }}"
+      - run: python -m ruff check .
+      - uses: actions/upload-artifact@v4
+        if: always() && runner.os == 'Windows'
+        with:
+          name: nexus-windows-runner-evidence-python-${{ matrix.python }}
+          path: tmp/windows-evidence/*/report.json
+          retention-days: 1
+  frontend:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e .
+      - run: npm ci --no-audit --no-fund
+        working-directory: apps/web
+      - run: npm test
+        working-directory: apps/web
+      - run: npm run build
+        working-directory: apps/web
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - run: npm run test:e2e
+        working-directory: apps/web
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nexus-synthetic-browser-evidence
+          path: |
+            apps/web/test-results/overview-mobile.png
+            apps/web/test-results/connections-desktop.png
+            apps/web/test-results/overview-desktop.png
+            apps/web/test-results/overview-locked.png
+          retention-days: 1
