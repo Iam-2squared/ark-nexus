@@ -1,5 +1,4 @@
-import { type ReactNode } from 'react'
-import { BlackHoleScene } from './BlackHoleScene'
+import type { ReactNode } from 'react'
 
 export type WorkspacePage = 'overview'|'search'|'conversations'|'projects'|'connections'|'imports'
 type ApiState = 'loading'|'ready'|'unavailable'|'locked'
@@ -10,6 +9,7 @@ const stars = [[84,168],[201,419],[325,95],[434,689],[551,218],[652,857],[751,69
 
 export function CosmicBackground() {
   return <div className="cosmic-background" aria-hidden="true">
+    <div className="cosmic-nebula" />
     <svg className="cosmic-stars" viewBox="0 0 1440 1000" preserveAspectRatio="none" focusable="false">
       {stars.map(([x,y],i)=><g key={i} transform={`translate(${x} ${y})`}>
         <circle r={i%3===0?2:1} />{i%4===0?<path d="M-6 0H6M0-6V6" />:null}
@@ -35,6 +35,7 @@ function RouteIcon({page}:{page:WorkspacePage}) {
 export function StarNav({routes,page,onNavigate}:{routes:StarRoute[];page:WorkspacePage;onNavigate:(page:WorkspacePage)=>void}) {
   return <nav className="star-nav" aria-label="Workspace constellation">
     <svg className="constellation-lines" viewBox="0 0 1000 420" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <path d="M175 97L500 188 820 80M500 188L853 233M500 188L686 350M500 188L318 350M500 188L143 233" />
       <ellipse cx="500" cy="200" rx="350" ry="157" />
     </svg>
     {routes.map((route,i)=><button type="button" key={route.id} aria-label={route.label}
@@ -45,13 +46,16 @@ export function StarNav({routes,page,onNavigate}:{routes:StarRoute[];page:Worksp
   </nav>
 }
 
-export function SingularityHub({hidden=false}:{hidden?:boolean}) {
-  return <div className="singularity-hub" hidden={hidden} role="img" aria-label="White Singularity · ARK Nexusの中心核">
+export function SingularityHub() {
+  return <div className="singularity-hub" role="img" aria-label="White Singularity · ARK Nexusの中心核">
     <div className="hub-coordinate" aria-hidden="true">01 / WHITE SINGULARITY</div>
     <div className="singularity-visual" aria-hidden="true">
-      <BlackHoleScene />
+      <div className="gravity-halo" /><div className="gravity-ring ring-far" />
+      <div className="singularity-core"><span>N</span></div>
+      <div className="gravity-ring ring-near" /><div className="lensing-light" />
+      <span className="core-satellite satellite-one" /><span className="core-satellite satellite-two" />
     </div>
-    <div className="hub-caption" aria-hidden="true"><b>NEXUS</b><span>EVERY THREAD. ONE GRAVITY.</span></div>
+    <div className="hub-caption" aria-hidden="true"><b>NEXUS</b><span>ONE CENTER. EVERY ORBIT.</span></div>
   </div>
 }
 

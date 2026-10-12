@@ -1,38 +1,42 @@
 # White Space / White Singularity — UI base
 
-2026-10-12。対象はARK Nexusだけ。UIの方向性を確認するアプリシェルで、V1公式完了・実形式対応・ユーザーWindows実機の証拠ではない。
+2026-10-12。対象はARK Nexusだけ。これはUI方向性を確認するためのアプリシェルで、V1公式完了・実形式対応・ユーザーWindows実機の証拠ではない。
 
-## 現在の描画
+## デザインと構造
 
-所有者の追加指定「線の模様をなくし、写真のような質感にする」に合わせ、32/38本のSVG帯、12本のinflow線、固定粒子を廃止。Overviewの主役はローカルのWebGL2 fragment shaderに変更した。黒い中心、傾いた白い降着円盤、重力レンズ、ガスの濃淡を3D座標から描く。背景は単色白を維持する。
+- 背景はoff-white / silver / pale blueの静的gradient、薄い霧、22個のSVG星と軌道線。画像、外部font、Canvas/WebGL、3D library、追加packageは使わない。
+- Overview中央のWhite Singularityは白い発光核、薄いhalo、前後の傾いたring、光のlensing line。ARK Nexusの知性の中心を示す象徴で、物理simulationや実行中AIの表示ではない。
+- 固定左sidebarを廃止。6個のラベル付き星ノードを中心の周囲に置く。他5画面では同じDOMのナビをコンパクトな星座帯として維持し、選択後もkeyboard focusが失われない。
+- 4 metricは半透明のOrbit panel。APIから取得した保存済み件数だけを表示する。取得前/lock後は「—」、API unavailable時は既存の取得時刻付きsnapshotとして扱う。デモ用の架空件数は追加しない。
+- 現在のAPI状態はheaderに表示。synthetic-only / live sync off / V1 BLOCKEDを明示し、実アカウント接続や自動タスク実行を示唆する操作を置かない。
 
-`singularity.frag.glsl`は200回を上限とする近似光線追跡、有限のガス体積、4段階の決定的noiseを用いる。光線の曲がりと体積内の吸収/発光が明暗と奥行きを作る。世界観を表現するartistic approximationであり、天体物理の計算証拠やAIの実行状態ではない。参考写真・poster・文字はpublic repoに追加しない。生成AIサービス、外部画像、外部font、追加package、3D libraryは使用しない。コードと描画検証用成果物はNexus workspace内に限定する。
+`components/CosmicShell.tsx`のAppShell / CosmicBackground / StarNav / SingularityHub / StatusConstellation / MetricCard / OrbitPanelを再利用する。ページの認証、CSRF header、session epoch、late-response rejection、import/search/project/paging handlersは変更しない。
 
-`BlackHoleScene` / `singularityRenderer`を共通Hubから呼ぶ。通常は一度だけ描画し、animation loopは動かさない。サイズが変わった時だけ100ms debounceで再描画し、同じbufferサイズなら描画しない。Hubはページ間で同じcanvasを保持してhidden属性で隠し、hidden/サイズ0の間は描画しない。StrictMode replayでもpreserveした同じdecorative framebufferを再利用し、二重に光線追跡しない。最大900,000 pixels、DPR 1.25、1600×900以下。Overviewを離れた時に所有するshader/program/context、observer/listener/timerを解放する。
+## 操作・レスポンシブ
 
-WebGL2未対応、compile/link/uniform/draw失敗、context lossでは簡素な黒いSVGとgas volumeへ戻す。これは写真相当の描画とは区別し、`data-renderer`がfallbackのままなら実shader PASSにしない。診断にGPU/driverの情報や例外本文を出さない。forced-colorsでは装飾を隠す。全体は静止画として成立し、reduced-motionでも使用できる。
+Desktopは周辺に星ノード、mobileはコアの下に3列×2行のラベル付きノード。狭い画面でも6導線を隠さない。native button、aria-current、navigation landmark、skip-to-main、focus-visibleを使用し、装飾SVGを操作対象から除く。主要buttonは44px以上。静的表示を基本にし、prefers-reduced-motionでhover transitionも無効化する。forced-colorsでは装飾より境界・focusを優先する。
 
-## 操作・レイアウト
-
-画面幅に近い最大1320px、高さ600pxのHubを6個の星ノードが囲む。mobileは390pxの描画領域の下に3列×2行の導線を表示する。黒い中心の拡大、縦横soft mask、captionのscene内配置を維持し、光でラベルを読めなくしない。画像確認後はfade領域を広げ、ガスの矩形枠を白い背景へ自然に溶かす。GPU描画は画面の縦横比に応じてcamera focal lengthを調整し、狭い幅で核全体が切れないようにする。
-
-他5画面では同じDOMのナビをコンパクトに表示する。native button、aria-current、navigation landmark、skip-to-main、focus-visible、44px以上のtargetを保持する。装飾SVG/canvasはaria-hidden・非focusable・pointer-events none。認証、CSRF header、session epoch、late-response rejection、import/search/project/paging handlersは変更しない。
-
-4 metricは実際のAPI件数だけを表示し、取得前/lock後は「—」。API unavailable時は既存の取得時刻付きsnapshotとして扱う。synthetic-only / live sync off / V1 BLOCKEDを明示し、未接続の実アカウントやWorkタスクを取得済みと表示しない。
+英字の小さな座標/番号は装飾。本文・運用ラベル・警告は可読性を優先する。セキュリティ/機能の未検証状態をグローや成功色だけで判定させない。
 
 ## 評価と証跡
 
-既存のApp DOM20件、Chromium2シナリオ、backend/Linux/Windows Gateは保持。追加UI DOM9件は背景・soft mask・caption・黒いfallback・6導線・focus・未認証requestゼロ・未知件数を確認する。旧SVGのpath本数条件は、所有者が拒否した線を廃止するために変更した。写真の見え方をSVG path数でPASSにせず、実描画のpixel検証に置き換える。
+既存DOM20件、Chromium2シナリオ、backend/Linux/Windows Gateは保持。追加DOM4件は中心核・未知件数・6導線・focus・未認証のprivate requestゼロ・装飾の非操作性、未focusのskip linkのclipを確認する。
 
-新たなrenderer単体8件は、context拒否、compile/link/uniform失敗、buffer上限、idle中の重複描画なし、リソース解放、非有限寸法、context loss/draw失敗を確認する。uniform欠損、NaN/Infinity寸法、StrictModeのeffect再実行前にcontextを失う問題は追加テストで失敗を再現してから修正した。shader/programは毎回解放し、context自体はcanvasがDOMから外れた時だけ解放する。Vitest合計37件（DOM29 + renderer8）。
+追加Chromium3シナリオで、locked状態の6導線/keyboard focus、320/390/768/1024/1440px全ページの横overflowとclick、reduced-motion/skip link、実際の合成API取得/lockを検証する。最終HEADのCIを確認するまで実ブラウザーPASSとはしない。
 
-追加Chromium4シナリオで、locked状態の6導線/keyboard focus、320/390/768/1024/1440pxの全ページ操作とoverflow、実際の合成API/lock、実WebGL context lossとWebGL拒否時の操作を検証する。shaderが実際に動いたことを必須とし、framebufferの黒い領域/明るい光の割合とbuffer上限を検査する。黒い核の実pixel幅は5幅で120/150/220/275/275px以上（以前の輪の最低直径をそのまま維持し、枠やhidden SVGから計測しない）。fallbackはこれとは別に検証する。初回/resize後の実shader確認には20秒の上限を設け、既存の機能期待値/timeoutを緩めない。
+CI artifactは明示した4枚の合成PNGだけを1日保存する：overview-mobile.png / connections-desktop.png（既存）、overview-desktop.png / overview-locked.png（追加）。private profile、DB、key、trace、raw exportはartifactに含めない。Desktop PNGは1440×1000のviewport、mobile PNGは既存390pxのfull page。実機WindowsやSafariの結果ではない。
 
-実ブラウザー合計6シナリオ。Playwrightのsynthetic localhostテストだけは、GPUのないrunnerで[Chromium公式のSwiftShader flags](https://chromium.googlesource.com/chromium/src/+/main/docs/gpu/swiftshader.md)を指定する（確認日2026-10-12）。ownerのprivate browserへのflag設定は実装・推奨しない。最終HEADのCIと画像確認が終わるまでChromium PASSや参考画像への適合確認済みとはしない。ソフトウェアMesaによるworkspace内のoffscreen shader確認はコードの描画確認であり、ブラウザー/ユーザーWindows実機の結果ではない。ユーザーWindows/Safari/低性能GPUの性能は未検証。
+今後のUI課題：所有者による世界観レビュー、中央核/文字量のバランス、mobileの情報優先順位、全ページの密度調整、実機ブラウザー/assistive technologyの追加確認。機能追加や未検証Gate解除とは別の作業として扱う。
 
-CI artifactはallowlistの4枚の合成PNGだけを1日保存：overview-mobile.png / connections-desktop.png / overview-desktop.png / overview-locked.png。実shaderの完了後にdesktop1440×1000とmobile390px full-pageを保存する。DB/key/private profile/trace/raw exportはartifactに含めない。現在HEADのCI URL・結果はDraft PR #1に記録する。
+## 2026-10-12 初期UIへ復元
 
-次のUI課題は所有者による質感レビュー、実機GPUの初回描画時間、mobileの余白と情報密度、他5ページのデザイン細部。実形式AdapterとWindows owner Gateは引き続きBLOCKED/NOT RUN。
+所有者の「一番最初に戻して」により、最初のWhite Space UIの表示修正版 c2d488b6ffb7b31decf2be056300629b00c3d136 の見た目へ復元する。白いNの中心核、淡いbackground/nebula、細いring、星ナビ、初期の見出しと余白を戻す。skip linkのclipと画像先頭の補正は維持する。
+
+UI関連7ファイルをそのsourceの内容へ戻し、後から追加したWebGL scene/renderer/GLSL/type/renderer testsの5ファイルを削除する。原本App DOM20、Chromium2、backend/tests/fixtures/migrations/固定30+30検索/1,000件取り込みは変更しない。実装しない黒い空洞・巨大disk・WebGL専用の視覚/描画テストは、当該featureの撤回として元のUI suiteへ戻す。評価を通すための安全/機能条件変更ではない。DOM24/build/Chromium5とWindows/Linuxの新しいHEADのCIを改めて確認する。
+
+Git履歴を書き換えず、現在の開発branchに復元commitを追加する。以前の失敗/PASSは以下とDraft PRに履歴として保持し、新しいHEADへ流用しない。実形式Adapter BLOCKED、owner Windows NOT RUN、V1公式BLOCKEDは継続。
+
+直前のphoto-like source 828ed31702c671c186f07718391441c224fdc359 はrun38210325009で5/5 PASS（Vitest37/build/実Chromium6、Linux193+3 skip各/Windows194+2 skip各）。これは所有者が取り消したUIの履歴証拠であり、復元HEADの証拠ではない。
 
 ## 以前の検証履歴（現在HEADのPASSには流用しない）
 

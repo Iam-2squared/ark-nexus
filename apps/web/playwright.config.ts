@@ -10,12 +10,7 @@ export default defineConfig({
   testMatch: '**/*.e2e.ts',
   workers: 1,
   retries: 0,
-  use: {
-    baseURL:'http://127.0.0.1:5173',viewport:{width:1440,height:1000},
-    // Synthetic local test content only. No GPU is available on the Actions runner.
-    // These Chromium test flags are never recommended for an owner's private browser.
-    launchOptions:{args:['--use-gl=angle','--use-angle=swiftshader-webgl','--enable-unsafe-swiftshader']},
-  },
+  use: {baseURL:'http://127.0.0.1:5173',viewport:{width:1440,height:1000}},
   webServer: [
     {
       command:'python -m uvicorn nexus.api:app --host 127.0.0.1 --port 8788 --no-access-log --no-proxy-headers',

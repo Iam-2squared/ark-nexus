@@ -3,74 +3,11 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import { SingularityHub } from './components/CosmicShell'
 
 beforeEach(()=>{ sessionStorage.clear(); vi.stubGlobal('fetch',vi.fn()) })
 afterEach(()=>{ cleanup(); vi.unstubAllGlobals() })
 
 describe('White Singularity UI, locked synthetic-only workspace',()=>{
-  it('fades the gravity field on both axes and keeps its caption inside the scene',async()=>{
-    const files = await import('node:'+'fs') as {readFileSync:(path:string,encoding:'utf8')=>string}
-    const style=document.createElement('style')
-    style.textContent=files.readFileSync('src/style.css','utf8')
-    document.head.appendChild(style)
-    try {
-      const {container}=render(<SingularityHub />)
-      const visual=container.querySelector('.white-hole-visual')!
-      expect(getComputedStyle(visual).maskImage.split('linear-gradient(')).toHaveLength(3)
-      expect(getComputedStyle(visual).maskComposite).toBe('intersect')
-      expect(getComputedStyle(container.querySelector('.hub-caption')!).position).toBe('absolute')
-    } finally { style.remove() }
-  })
-
-  it('softens the enlarged light disk at the scene frame edges',async()=>{
-    const files = await import('node:'+'fs') as {readFileSync:(path:string,encoding:'utf8')=>string}
-    const style=document.createElement('style')
-    style.textContent=files.readFileSync('src/style.css','utf8')
-    document.head.appendChild(style)
-    try {
-      const {container}=render(<SingularityHub />)
-      const visual=container.querySelector('.white-hole-visual')!
-      expect(getComputedStyle(visual).maskImage).toMatch(/^linear-gradient\(/)
-    } finally { style.remove() }
-  })
-
-  it('provides a noninteractive canvas and quiet black fallback without the rejected line pattern',()=>{
-    const {container}=render(<><SingularityHub /><SingularityHub /></>)
-    const visuals=container.querySelectorAll('.white-hole-visual')
-    expect(visuals).toHaveLength(2)
-    for(const visual of visuals) {
-      expect(visual.getAttribute('aria-hidden')).toBe('true')
-      expect(visual.getAttribute('data-renderer')).toBe('fallback')
-      expect(visual.querySelector('canvas')?.getAttribute('aria-hidden')).toBe('true')
-      expect(visual.querySelector('canvas')?.hasAttribute('tabindex')).toBe(false)
-      expect(visual.querySelector('.white-hole-void')?.getAttribute('fill')).toBe('#000')
-      expect(visual.querySelector('.gravity-inflow,.lensed-light,.accretion-front')).toBeNull()
-      expect(visual.querySelector('path')).toBeNull()
-      expect(visual.querySelector('ellipse')).toBeTruthy()
-      expect(visual.querySelector('text,image,foreignObject')).toBeNull()
-    }
-    const ids=[...container.querySelectorAll('svg defs [id]')].map(n=>n.id)
-    expect(ids.length).toBeGreaterThan(0)
-    expect(new Set(ids).size).toBe(ids.length)
-    expect(container.querySelector('[href],[xlink\\:href]')).toBeNull()
-  })
-
-  it('uses a plain white canvas without the previous background nebula',async()=>{
-    const files = await import('node:'+'fs') as {readFileSync:(path:string,encoding:'utf8')=>string}
-    const style=document.createElement('style')
-    style.textContent=files.readFileSync('src/style.css','utf8')
-    document.head.appendChild(style)
-    try {
-      const {container}=render(<App />)
-      const background=container.querySelector('.cosmic-background')!
-      expect(getComputedStyle(background).backgroundColor).toBe('rgb(255, 255, 255)')
-      expect(getComputedStyle(background).backgroundImage).toBe('none')
-      expect(container.querySelector('.cosmic-nebula')).toBeNull()
-      expect(container.querySelector('.constellation-lines path')).toBeNull()
-    } finally { style.remove() }
-  })
-
   it('has a decorative white cosmos and a labelled central hub without fake counts',async()=>{
     const {container}=render(<App />)
     await screen.findByText('LOCAL WORKSPACE LOCKED')
@@ -92,19 +29,6 @@ describe('White Singularity UI, locked synthetic-only workspace',()=>{
     }
     expect(fetch).not.toHaveBeenCalled()
     expect(screen.getByRole('button',{name:'Import fixture'}).hasAttribute('disabled')).toBe(true)
-  })
-
-  it('retains the same static canvas across page navigation to avoid retracing on each return',async()=>{
-    const {container}=render(<App />)
-    const canvas=container.querySelector('.singularity-canvas')
-    const hub=screen.getByRole('img',{name:'White Singularity · ARK Nexusの中心核'})
-    await userEvent.click(screen.getByRole('button',{name:'Universal Search'}))
-    expect(container.querySelector('.singularity-canvas')).toBe(canvas)
-    expect(hub.hasAttribute('hidden')).toBe(true)
-    await userEvent.click(screen.getByRole('button',{name:'Overview'}))
-    expect(container.querySelector('.singularity-canvas')).toBe(canvas)
-    expect(hub.hasAttribute('hidden')).toBe(false)
-    expect(fetch).not.toHaveBeenCalled()
   })
 
   it('offers a keyboard skip link and never makes decorative stars focusable',()=>{
