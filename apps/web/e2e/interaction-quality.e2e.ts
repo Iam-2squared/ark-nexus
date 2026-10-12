@@ -12,6 +12,14 @@ test('interaction quality: real synthetic API, guarded writes, page drafts, filt
   const errors:string[]=[]
   page.on('pageerror',error=>errors.push(error.message))
   await unlock(page)
+  await page.getByRole('button',{name:'Universal Search',exact:true}).click()
+  await page.getByRole('textbox',{name:'Search imported messages'}).fill('synthetic-navigation-draft')
+  await page.goBack()
+  expect(new URL(page.url()).hash).toBe('')
+  await expect(page.getByRole('button',{name:'Overview',exact:true})).toHaveAttribute('aria-current','page')
+  await page.goForward()
+  await expect(page.getByRole('button',{name:'Universal Search',exact:true})).toHaveAttribute('aria-current','page')
+  await expect(page.getByRole('textbox',{name:'Search imported messages'})).toHaveValue('synthetic-navigation-draft')
   await page.getByRole('button',{name:'Import History',exact:true}).click()
   await page.getByLabel('Account alias').fill('interaction-quality-browser')
   const fixture={nexus_fixture:'synthetic-v1',provider:'chatgpt',conversations:[{

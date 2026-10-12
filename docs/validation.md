@@ -2,6 +2,11 @@
 
 ## Current mega-batch evidence pointer
 
+Source7969166 / run38218729066 passed5/5 (DOM45/build/Chromium7 and four backends).
+Final navigation review then added empty-hash Back/forward and unknown-anchor
+regressions; one failure preceded a one-line fix. DOM47/build PASS locally.
+The final source requires separate CI/artifact evidence in Draft PR1.
+
 First batch source79c1abe / run38218223288 had4/5 PASS: four backends and DOM44/build
 passed, Chromium6/7. The added exact conversation-filter label failed. One
 additional DOM reproduction preceded explicit aria-labels on the two selects;

@@ -14,7 +14,7 @@
 
 ## 2026-10-12 操作品質
 
-既存24 DOMに21件、既存5 Chromiumに2シナリオを追加。二重submit同期guard、abort/session、別reload失敗後の遅い401、検索条件変更時クリア、会話source/project、cursor停滞/重複ID、明示retry/aria-live/空状態を検証する。URL/historyに保存するのはpage名のみ。query/alias/本文/keyは保存しない。page移動のdraftはmemory保持、Lock/401で消去する。
+既存24 DOMに23件、既存5 Chromiumに2シナリオを追加。二重submit同期guard、abort/session、別reload失敗後の遅い401、検索条件変更時クリア、会話source/project、cursor停滞/重複ID、明示retry/aria-live/空状態を検証する。URL/historyに保存するのはpage名のみ。query/alias/本文/keyは保存しない。page移動のdraftはmemory保持、Lock/401で消去する。
 
 白いN/ring/6星/見出し/CSSは保持。baseline画像を実際に確認し、新source画像/Chromiumは対応HEADのCIで別検証する。[一括検証](megabatch-2026-10-12.md)。実形式・owner Windows・私的データGateは昇格しない。
 
@@ -58,3 +58,5 @@ source a477117d69b31932b8599a3cac08e3c00773e978のrun38201877782は5/5 PASS（DO
 円を拡大したsource 9eb83d42a8c9631ce3859c4816472e2a652c0dbdのrun38204909543は5/5 PASS（DOM26/build/Chromium5、輪の実直径/既存backend件数）。画像で発光disk両端の切断を確認したため、追加DOM回帰を失敗確認して両端10%のsoft maskを追加した。5幅の実ブラウザーでもsoft maskを要求し、輪の最低直径と既存操作条件は維持。仕上げHEADのCI/画像を別に検証する。
 
 巨大なgravity fieldを導入したsource a119995642cd8c4dfa85e1d26ea716203e0197e2のrun38207186867は5/5 PASS（DOM27/build/Chromium5、backend既存件数）。画像でfield上下の切断、captionとmetricへの接近、黒い中心を横断する点線を確認した。追加DOM回帰を失敗確認して縦横fadeのintersectとscene内caption配置を固定し、点線nav ellipseは表示せず独自のinflow軌道を使用する。5幅のブラウザー検証にも同条件を追加。既存の直径/操作/機能Gateは維持し、仕上げHEADのCI/画像を別に検証する。
+
+最後のnavigation reviewでは空hashへのBackをOverviewとして扱う1行修正を追加。unknown/skip anchorは現在pageを保持する。初期hashのdeep-link対応は未追加。元のDOM24/Chromium5と30秒timeoutは保持し、最終HEADのCIを別確認する。

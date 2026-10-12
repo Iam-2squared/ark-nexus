@@ -1,5 +1,24 @@
 # 2026-10-12 mega-batch — changes and evidence
 
+## Final navigation review
+
+Source `79691663fe13ba6e073718ddae121775636c8444` / run
+[38218729066](https://github.com/Iam-2squared/ark-nexus/actions/runs/38218729066)
+passed5/5: Linux512+3 skips each, Windows513+2 each, DOM45/build/Chromium7.
+Three archive digests/source metadata were verified: exactly four synthetic PNGs,
+both Windows reports10 fields/8 synthetic PASS/6 owner-real NOT RUN. Checkout
+`d4ff52132b4e95904aaa3bf852a6065326e508c4` differs from source HEAD. Desktop1440x1000,
+mobile390x2462 and locked images were visually inspected; the desktop static
+heading/core/nav crop0..810px was pixel-identical to the initial source image.
+
+Final review reproduced Back from the first route to an empty URL hash retaining
+the wrong page (one FAIL/one existing positive anchor case). A one-line page
+classification fix restores Overview for empty hash while preserving unknown/
+skip anchors. Two additive DOM cases and assertions in the new browser scenario
+retain all original24 DOM/five browser scenarios and30s timeout. DOM47/build PASS
+locally; initial deep-link support was not added. The final source still requires
+its own CI/artifact review recorded in Draft PR1, not reuse of the5/5 above.
+
 ## CI follow-up: explicit conversation filter labels
 
 Source `79c1abe365f6fe11feb2f286955735f89fa5d92f` / run

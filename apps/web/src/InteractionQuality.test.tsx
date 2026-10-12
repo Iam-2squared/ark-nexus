@@ -159,6 +159,33 @@ describe('Additive synthetic interaction and privacy regressions',()=>{
     expect((screen.getByRole('textbox',{name:'Search imported messages'}) as HTMLInputElement).value).toBe('PRIVATE-SYNTHETIC-QUERY')
   })
 
+  it('restores the empty-hash Overview entry and preserves drafts when moving forward',async()=>{
+    await ready('Universal Search')
+    await userEvent.type(screen.getByRole('textbox',{name:'Search imported messages'}),'合成ナビ下書き')
+    const before=fetchMock.mock.calls.length
+    window.history.replaceState(null,'','/')
+    fireEvent.popState(window)
+    expect(screen.getByRole('button',{name:'Overview'}).getAttribute('aria-current')).toBe('page')
+    window.history.replaceState(null,'','#search')
+    fireEvent.popState(window)
+    expect(screen.getByRole('button',{name:'Universal Search'}).getAttribute('aria-current')).toBe('page')
+    expect((screen.getByRole('textbox',{name:'Search imported messages'}) as HTMLInputElement).value).toBe('合成ナビ下書き')
+    expect(fetchMock.mock.calls).toHaveLength(before)
+  })
+
+  it('ignores unknown hashes and the skip-link content anchor without changing the current page',async()=>{
+    await ready('Universal Search')
+    const before=fetchMock.mock.calls.length
+    window.history.replaceState(null,'','#workspace-content')
+    fireEvent(window,new HashChangeEvent('hashchange'))
+    expect(screen.getByRole('button',{name:'Universal Search'}).getAttribute('aria-current')).toBe('page')
+    window.history.replaceState(null,'','#unknown-synthetic-anchor')
+    fireEvent.popState(window)
+    expect(screen.getByRole('button',{name:'Universal Search'}).getAttribute('aria-current')).toBe('page')
+    expect(screen.getByRole('textbox',{name:'Search imported messages'})).toBeTruthy()
+    expect(fetchMock.mock.calls).toHaveLength(before)
+  })
+
   it('loads source and project conversation filters from the local API',async()=>{
     await ready('Conversations')
     await userEvent.selectOptions(screen.getByLabelText('Conversation source'),source.id)

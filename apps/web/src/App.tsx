@@ -59,6 +59,7 @@ const time = (value:string|null) => value ? new Date(value).toLocaleString('ja-J
 const errorText = (err:unknown) => err instanceof Error ? err.message : 'Request failed'
 const locationPage = ():Page|null => {
   const value=window.location.hash.slice(1)
+  if(!value) return 'overview'
   return tabs.some(tab=>tab.id===value)?value as Page:null
 }
 const conversationParams = (source:string,project:string,offset?:number) => {
