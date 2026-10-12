@@ -1,5 +1,18 @@
 # 2026-10-12 mega-batch — changes and evidence
 
+## CI follow-up: explicit conversation filter labels
+
+Source `79c1abe365f6fe11feb2f286955735f89fa5d92f` / run
+[38218223288](https://github.com/Iam-2squared/ark-nexus/actions/runs/38218223288)
+completed4/5 PASS. Both Linux jobs512+3 skips and both Windows jobs513+2 passed;
+DOM44/build passed. Chromium6/7 passed, including the original five scenarios.
+The added scenario timed out at the exact Conversation source label: the native
+wrapped select did not have the intended explicit accessible name. One additive
+DOM reproduction failed before adding aria-label to the two conversation filters.
+DOM45/build then passed locally. Original exact selectors, seven scenarios and
+30-second timeout are unchanged. The follow-up HEAD requires its own full CI;
+the4/5 failure is retained and not described as a complete PASS.
+
 Scope: **Iam-2squared/ark-nexus only**. Draft PR1 stays Draft/unmerged.
 Start main `91a493a9ffb636c85b016874f1f721685adab12e`; start feature
 `0f99177c731edf64b13794d7f96cb5f4791a29ab`. Start

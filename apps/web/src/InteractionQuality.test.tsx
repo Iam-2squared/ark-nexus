@@ -171,6 +171,17 @@ describe('Additive synthetic interaction and privacy regressions',()=>{
     expect((screen.getByLabelText('Conversation project') as HTMLSelectElement).value).toBe(project.id)
   })
 
+  it('keeps exact conversation filter labels independent of nested option text',async()=>{
+    await ready('Conversations')
+    for(const name of ['Conversation source','Conversation project']) {
+      const select=screen.getByLabelText(name,{exact:true})
+      // Playwright includes descendant option text in an implicit label.
+      // Explicit names must remain exact as synthetic accounts/projects grow.
+      expect(select.getAttribute('aria-label')).toBe(name)
+      expect(screen.getByRole('combobox',{name})).toBe(select)
+    }
+  })
+
   it('offers an explicit safe retry after a conversation read fails',async()=>{
     let fail=true
     fetchMock.mockImplementation((input,init)=>urlOf(input).pathname.endsWith('/messages') && fail?Promise.resolve(response({detail:'Local storage unavailable'},503)):localHttp(input,init))

@@ -473,9 +473,9 @@ export default function App() {
           <article className="panel" aria-busy={activeOperation.current?.kind==='conversation-filter' || activeOperation.current?.kind==='conversation-page'}>
             <h2 aria-live="polite" aria-atomic="true">{conversationStatus==='loading'?'会話取得中…':conversationStatus==='error'?'会話取得失敗（最新結果は未取得）':counts?convos.total+' conversations · '+convos.items.length+' shown':'データ未取得'}</h2>
             <div className="filters">
-              <label>Conversation source<select disabled={controlsDisabled} value={conversationSource} onChange={e=>void filterConversations(e.target.value,conversationProject)}><option value="">All sources</option>
+              <label>Conversation source<select aria-label="Conversation source" disabled={controlsDisabled} value={conversationSource} onChange={e=>void filterConversations(e.target.value,conversationProject)}><option value="">All sources</option>
                 {sources.map(s=><option value={s.id} key={s.id}>{s.provider} · {s.account_alias}</option>)}</select></label>
-              <label>Conversation project<select disabled={controlsDisabled} value={conversationProject} onChange={e=>void filterConversations(conversationSource,e.target.value)}><option value="">All projects</option>
+              <label>Conversation project<select aria-label="Conversation project" disabled={controlsDisabled} value={conversationProject} onChange={e=>void filterConversations(conversationSource,e.target.value)}><option value="">All projects</option>
                 {projects.map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select></label>
             </div>
             {conversationStatus==='success' && convos.total===0 && <p className="muted">この条件の会話はありません。合成fixtureを取り込むか、フィルターを変更してください。</p>}

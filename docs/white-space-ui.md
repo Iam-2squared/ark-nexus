@@ -14,7 +14,7 @@
 
 ## 2026-10-12 操作品質
 
-既存24 DOMに20件、既存5 Chromiumに2シナリオを追加。二重submit同期guard、abort/session、別reload失敗後の遅い401、検索条件変更時クリア、会話source/project、cursor停滞/重複ID、明示retry/aria-live/空状態を検証する。URL/historyに保存するのはpage名のみ。query/alias/本文/keyは保存しない。page移動のdraftはmemory保持、Lock/401で消去する。
+既存24 DOMに21件、既存5 Chromiumに2シナリオを追加。二重submit同期guard、abort/session、別reload失敗後の遅い401、検索条件変更時クリア、会話source/project、cursor停滞/重複ID、明示retry/aria-live/空状態を検証する。URL/historyに保存するのはpage名のみ。query/alias/本文/keyは保存しない。page移動のdraftはmemory保持、Lock/401で消去する。
 
 白いN/ring/6星/見出し/CSSは保持。baseline画像を実際に確認し、新source画像/Chromiumは対応HEADのCIで別検証する。[一括検証](megabatch-2026-10-12.md)。実形式・owner Windows・私的データGateは昇格しない。
 

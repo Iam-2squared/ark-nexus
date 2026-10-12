@@ -2,6 +2,12 @@
 
 ## Current mega-batch evidence pointer
 
+First batch source79c1abe / run38218223288 had4/5 PASS: four backends and DOM44/build
+passed, Chromium6/7. The added exact conversation-filter label failed. One
+additional DOM reproduction preceded explicit aria-labels on the two selects;
+DOM45/build PASS locally, unchanged seven scenarios/30s timeout. Follow-up CI
+requires independent source-HEAD verification; see the batch evidence below.
+
 The 2026-10-12 [batch report](megabatch-2026-10-12.md) distinguishes current
 implementation/local synthetic results from historical runs below. Original
 fixtures/gates are retained; final source-HEAD CI and reviewed artifact evidence
