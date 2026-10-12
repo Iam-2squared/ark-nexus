@@ -9,13 +9,13 @@ beforeEach(()=>{ sessionStorage.clear(); vi.stubGlobal('fetch',vi.fn()) })
 afterEach(()=>{ cleanup(); vi.unstubAllGlobals() })
 
 describe('White Singularity UI, locked synthetic-only workspace',()=>{
-  it('draws a white void, bent light and a foreground disk rather than a lettered sphere',()=>{
+  it('draws a black void with bent light and a foreground disk rather than a lettered sphere',()=>{
     const {container}=render(<><SingularityHub /><SingularityHub /></>)
     const visuals=container.querySelectorAll('svg.white-hole-visual')
     expect(visuals).toHaveLength(2)
     for(const visual of visuals) {
       expect(visual.getAttribute('aria-hidden')).toBe('true')
-      expect(visual.querySelector('.white-hole-void')?.getAttribute('fill')).toBe('#fff')
+      expect(visual.querySelector('.white-hole-void')?.getAttribute('fill')).toBe('#000')
       expect(visual.querySelectorAll('.lensed-light path').length).toBeGreaterThanOrEqual(12)
       expect(visual.querySelectorAll('.accretion-front path').length).toBeGreaterThanOrEqual(12)
       expect(visual.querySelector('text,image,foreignObject')).toBeNull()

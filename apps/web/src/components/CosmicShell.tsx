@@ -70,7 +70,7 @@ function WhiteBlackHole() {
           strokeWidth="7" opacity=".3" />
       </g>
       <circle cx="400" cy="219" r="143" fill={'url(#'+id+'-rim)'} />
-      <circle className="white-hole-void" cx="400" cy="219" r="130" fill="#fff" />
+      <circle className="white-hole-void" cx="400" cy="219" r="130" fill="#000" />
       <circle className="photon-edge" cx="400" cy="219" r="130" fill="none" stroke="#bdcfe5" strokeWidth=".8" opacity=".6" />
       <g className="accretion-front" mask={'url(#'+id+'-disk-mask)'}>
         <path d={frontDisk} fill={'url(#'+id+'-disk)'} />
