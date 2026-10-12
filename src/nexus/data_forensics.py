@@ -22,6 +22,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from nexus.cli import PrivateArgumentParser
+from nexus.forensic_lifecycle import BOUNDARY_PHASES, pytest_lifecycle, validate_lifecycle
 from nexus.machine_check import REPOSITORY, workspace_metadata
 from nexus.private_storage import checked_database_path, checked_path
 
@@ -40,6 +41,7 @@ TABLES = ("source_instances", "conversations", "messages", "import_batches",
 CORE_TABLES = set(TABLES) - {"schema_migrations"}
 PHASES = {"opened", "begin_before", "begin_after", "commit_before", "commit_after",
           "rollback_before", "rollback_after", "close_before", "close_reopened", "final"}
+PHASES |= BOUNDARY_PHASES
 MAX_CONNECTIONS = 512
 MAX_CHECKPOINTS = 4096
 MAX_REPORT_BYTES = 8 * 1024 * 1024
@@ -140,6 +142,7 @@ class CountObserver:
         self.capped = False
         self.prepared_deletes = 0
         self.prepared_drops = 0
+        self.commit_boundaries = 0
         self.lock = threading.RLock()
         observer = self
 
@@ -147,6 +150,7 @@ class CountObserver:
             def commit(self):
                 observer.capture(self, "commit_before")
                 result = super().commit()
+                observer.commit_boundaries += 1
                 observer.capture(self, "commit_after")
                 return result
 
@@ -163,13 +167,28 @@ class CountObserver:
                 return result
 
             def execute(self, sql, *args, **kwargs):
-                beginning = type(sql) is str and sql.strip().upper() in {
-                    "BEGIN", "BEGIN IMMEDIATE", "BEGIN DEFERRED", "BEGIN EXCLUSIVE"}
-                if beginning:
-                    observer.capture(self, "begin_before")
+                command = sql.strip().rstrip(";").strip().upper() if type(sql) is str else ""
+                phase = "begin" if command in {
+                    "BEGIN", "BEGIN IMMEDIATE", "BEGIN DEFERRED", "BEGIN EXCLUSIVE"} else {
+                        "COMMIT": "commit", "END": "commit", "ROLLBACK": "rollback"}.get(command)
+                if phase:
+                    observer.capture(self, phase + "_before")
                 result = super().execute(sql, *args, **kwargs)
-                if beginning:
-                    observer.capture(self, "begin_after")
+                if phase == "commit":
+                    observer.commit_boundaries += 1
+                if phase:
+                    observer.capture(self, phase + "_after")
+                return result
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                # The native context manager need not call Python's overridden
+                # commit/rollback methods. Preserve its result/error semantics.
+                phase = "rollback" if exc_type is not None else "commit"
+                observer.capture(self, phase + "_before")
+                result = super().__exit__(exc_type, exc_value, traceback)
+                if phase == "commit":
+                    observer.commit_boundaries += 1
+                observer.capture(self, phase + "_after")
                 return result
 
         self.connection_class = ObservedConnection
@@ -312,6 +331,7 @@ def _child(case, scope, observed):
 
     observer = CountObserver(basetemp, enabled=observed)
     evidence = _PytestEvidence()
+    lifecycle = pytest_lifecycle(observer, FROZEN_NODE)
     nodes = [FROZEN_NODE] if scope == "single" else list(RELATED_FILES) if scope == "related" \
         else ["tests"]
     original_connect = sqlite3.connect
@@ -319,12 +339,12 @@ def _child(case, scope, observed):
         if observed:
             sqlite3.connect = observer.connect
         exit_code = int(pytest.main(["-q", "--disable-warnings", "-p", "no:cacheprovider",
-                                    "--basetemp", str(basetemp), *nodes], plugins=[evidence]))
+                                    "--basetemp", str(basetemp), *nodes], plugins=[evidence, lifecycle]))
     finally:
         sqlite3.connect = original_connect
     observer.final()
     report = {
-        "schema": 1, "scope": scope, "observed": observed, "runtime": _runtime(),
+        "schema": 2, "scope": scope, "observed": observed, "runtime": _runtime(),
         "exit_code": exit_code, "pytest": evidence.counts,
         "frozen_test": evidence.frozen_result, "connections": observer.connections,
         "explicit_factories_respected": observer.explicit_factories,
@@ -332,6 +352,7 @@ def _child(case, scope, observed):
         "observation_errors": observer.observation_errors,
         "prepared_core_deletes": observer.prepared_deletes,
         "prepared_core_drops": observer.prepared_drops, "timeline": observer.timeline,
+        "lifecycle": lifecycle.report(),
     }
     _write_report(case / "case.json", report)
     return exit_code
@@ -369,7 +390,10 @@ def validate_case(report):
     fields = {"schema", "scope", "observed", "runtime", "exit_code", "pytest", "frozen_test",
               "connections", "explicit_factories_respected", "checkpoint_limit_reached",
               "observation_errors", "prepared_core_deletes", "prepared_core_drops", "timeline"}
-    _require(type(report) is dict and set(report) == fields)
+    _require(type(report) is dict)
+    if type(report.get("schema")) is int and report["schema"] == 2:
+        fields.add("lifecycle")
+    _require(set(report) == fields)
     runtime = report["runtime"]
     _require(type(runtime) is dict and set(runtime) == {
         "python", "sqlite", "os", "sqlite_module", "connection_runtime"})
@@ -380,7 +404,7 @@ def validate_case(report):
              and type(runtime["sqlite_module"]) is str
              and runtime["sqlite_module"] in {"builtin", "extension"}
              and runtime["connection_runtime"] == "current_python_sqlite3")
-    _require(type(report["schema"]) is int and report["schema"] == 1
+    _require(type(report["schema"]) is int and report["schema"] in (1, 2)
              and type(report["scope"]) is str and report["scope"] in SCOPES
              and type(report["observed"]) is bool
              and _integer(report["exit_code"], 5)
@@ -396,6 +420,11 @@ def validate_case(report):
         and type(report["checkpoint_limit_reached"]) is bool)
     _require(type(report["timeline"]) is list and len(report["timeline"]) <= MAX_CHECKPOINTS
              and all(_valid_checkpoint(point) for point in report["timeline"]))
+    _require(all(point["sequence"] == index + 1
+                 for index, point in enumerate(report["timeline"])))
+    if report["schema"] == 2:
+        validate_lifecycle(report["lifecycle"], report["timeline"], _require)
+        _require(report["lifecycle"]["boundary_observer_enabled"] is report["observed"])
     return report
 
 
@@ -421,7 +450,7 @@ def comparison_checks(report):
     final = [point for point in report["timeline"] if point["phase"] == "final"]
     expected = {"source_instances": 1, "conversations": 100, "messages": 10_000,
                 "import_batches": 2, "message_search": 10_000,
-                "source_events": 2, "audit_log": 2}
+                "source_events": 2, "audit_log": 2, "schema_migrations": 2}
     final_ok = (len(final) == 1 and final[0]["foreign_key_errors"] == 0
                 and final[0]["file_identity_same"]
                 and all(final[0]["counts"][table] == count for table, count in expected.items()))
@@ -432,12 +461,30 @@ def comparison_checks(report):
             closed[point["connection"]] = point["counts"]
         elif point["phase"] == "close_reopened" and point["connection"] in closed:
             changed_at_close |= closed[point["connection"]] != point["counts"]
-    return {"final_expected_counts": final_ok,
-            "file_identity_retained": all(point["file_identity_same"]
-                                          for point in report["timeline"]),
-            "foreign_keys_clean": all(point["foreign_key_errors"] == 0
-                                      for point in report["timeline"]),
-            "committed_close_counts_equal": not changed_at_close}
+    checks = {"final_expected_counts": final_ok,
+              "file_identity_retained": all(point["file_identity_same"]
+                                            for point in report["timeline"]),
+              "foreign_keys_clean": all(point["foreign_key_errors"] == 0
+                                        for point in report["timeline"]),
+              "committed_close_counts_equal": not changed_at_close}
+    if report["schema"] == 2:
+        lifecycle = report["lifecycle"]
+        events = lifecycle["events"]
+        ordered = ("test_setup_before", "fixture_setup_before", "fixture_setup_after",
+                   "test_setup_after", "test_call_before", "test_call_after",
+                   "test_teardown_before", "fixture_teardown_after", "test_teardown_after")
+        complete = (lifecycle["frozen_test_index"] is not None
+                    and lifecycle["collection_sha256"] is not None)
+        if report["observed"]:
+            complete &= tuple(event["phase"] for event in events) == ordered
+            complete &= all(event["status"] == "captured"
+                            and event["identity_same"] is True
+                            and event["main_header"]["valid"]
+                            for event in events[2:])
+        else:
+            complete &= not events
+        checks["lifecycle_complete"] = bool(complete)
+    return checks
 
 
 def _stop_owned(process):

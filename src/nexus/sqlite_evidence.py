@@ -66,6 +66,41 @@ def statement_journal_gates(counts, *, file_control_supported):
     return gates
 
 
+def modified_pages_delete_gate(counts, *, file_control_supported):
+    require(type(counts) is dict and type(file_control_supported) is bool)
+    mapped = {}
+    for configuration, stage in (("file_control", "predirty_file_delete"),
+                                 ("memory", "predirty_memory_delete")):
+        target = "file_control_delete" if configuration == "file_control" else "delete"
+        for operation in ("open", "write_calls", "write_bytes"):
+            mapped[target + ".statement_journal." + operation] = counts.get(
+                stage + ".statement_journal." + operation, 0)
+    return statement_journal_gates(mapped, file_control_supported=file_control_supported)["delete"]
+
+
+def _modified_pages_workload(value, rows, temp):
+    _object(value, {"status", "rows", "journal_mode", "temp_store", "cache_pages", "page_size",
+                    "max_database_bytes", "prior_rows_updated", "partial_row_callbacks",
+                    "transaction_active_after_failure", "statement_rollback",
+                    "prior_transaction_write_retained", "reopened_logical_equal",
+                    "stored_integrity", "fts_query_equal", "fts_internal_integrity",
+                    "storage_location_qualified", "private_import_allowed"})
+    for name in ("rows", "temp_store", "cache_pages", "page_size", "max_database_bytes",
+                 "prior_rows_updated", "partial_row_callbacks"):
+        _count(value[name])
+    require(value["status"] == "synthetic_PASS" and value["journal_mode"] == "delete"
+            and value["rows"] == value["prior_rows_updated"] == rows
+            and value["partial_row_callbacks"] == rows - 1
+            and value["temp_store"] == temp and value["cache_pages"] == 16
+            and value["max_database_bytes"] == MAX_DATABASE_BYTES
+            and 512 <= value["page_size"] <= 65536
+            and value["page_size"] & (value["page_size"] - 1) == 0)
+    _true_fields(value, ("transaction_active_after_failure", "statement_rollback",
+                        "prior_transaction_write_retained", "reopened_logical_equal",
+                        "stored_integrity", "fts_query_equal", "fts_internal_integrity"))
+    _false_fields(value, ("storage_location_qualified", "private_import_allowed"))
+
+
 def _workload(value, rows, temp, *, positive=False):
     fields = {"status", "workloads", "storage_location_qualified", "private_import_allowed"}
     if positive:
@@ -114,13 +149,17 @@ def validate_native(value, rows):
                              "private_import_allowed"))
         _count(value["native_registration_count"])
         return
-    _object(value, {"status", "captured", "reason", "runtime_binding", "native_origin",
+    fields = {"status", "captured", "reason", "runtime_binding", "native_origin",
                     "native_registration_count", "alternate_sqlite_loaded", "default_vfs_changed",
                     "callback_errors", "named_outside_private_count", "unnamed_open_count",
                     "shm_callback_count", "counts", "workload", "file_positive_control",
                     "statement_journal_gates", "experimental_backup_capture",
                     "os_syscalls_captured", "physical_unnamed_paths_qualified",
-                    "backup_connections_captured", "private_import_allowed"})
+                    "backup_connections_captured", "private_import_allowed"}
+    modified = type(value) is dict and "modified_pages_delete_control" in value
+    if modified:
+        fields.add("modified_pages_delete_control")
+    _object(value, fields)
     require(value["captured"] is True and value["status"] == "synthetic_PASS"
             and value["reason"] == "vfs_capture_only"
             and value["runtime_binding"] == "python_sqlite3_vfs_reached"
@@ -138,8 +177,11 @@ def validate_native(value, rows):
     for name, count in value["counts"].items():
         require(type(name) is str)
         parts = name.split(".")
-        require(len(parts) == 3 and parts[0] in {"delete", "wal", "file_control_delete",
-                                               "file_control_wal", "backup_delete", "backup_wal"}
+        stages = {"delete", "wal", "file_control_delete", "file_control_wal",
+                  "backup_delete", "backup_wal"}
+        if modified:
+            stages |= {"predirty_file_delete", "predirty_memory_delete"}
+        require(len(parts) == 3 and parts[0] in stages
                 and parts[1] in _KINDS and parts[2] in _OPERATIONS)
         _count(count)
     require(all(value["counts"].get(mode + ".main_db.open") == 1
@@ -196,6 +238,33 @@ def validate_native(value, rows):
                 and value["counts"].get(f"backup_{mode}.main_db.readonly_open") == 1
                 and value["counts"].get(f"backup_{mode}.main_db.readwrite_open") == 1
                 and value["counts"].get(f"backup_{mode}.main_db.write_calls", 0) > 0)
+    if modified:
+        control = value["modified_pages_delete_control"]
+        _object(control, {"memory_workload", "file_workload", "gate",
+                          "production_configuration", "storage_location_qualified",
+                          "private_import_allowed"})
+        _false_fields(control, ("production_configuration", "storage_location_qualified",
+                                "private_import_allowed"))
+        _modified_pages_workload(control["memory_workload"], rows, 2)
+        require(type(control["file_workload"]) is dict)
+        supported = control["file_workload"].get("status") != "NOT RUN"
+        if supported:
+            _modified_pages_workload(control["file_workload"], rows, 1)
+        else:
+            _object(control["file_workload"], ("status", "reason"))
+            require(control["file_workload"] == {"status": "NOT RUN", "reason": "compiled_memory_only"})
+        expected = modified_pages_delete_gate(value["counts"], file_control_supported=supported)
+        _object(control["gate"], expected)
+        for name in ("file_control_open_count", "file_control_write_calls", "file_control_write_bytes",
+                     "memory_open_count", "memory_write_calls", "memory_write_bytes"):
+            _count(control["gate"][name])
+        require(type(control["gate"]["positive_control_observed"]) is bool
+                and control["gate"] == expected)
+        _false_fields(control["gate"], ("storage_location_qualified", "private_import_allowed"))
+        for stage in ("predirty_memory_delete", *(('predirty_file_delete',) if supported else ())):
+            require(value["counts"].get(stage + ".main_db.open") == 2
+                    and value["counts"].get(stage + ".main_db.close") == 2
+                    and value["counts"].get(stage + ".main_db.write_calls", 0) > 0)
 
 
 def evidence_object(pairs):

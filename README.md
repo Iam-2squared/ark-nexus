@@ -99,6 +99,12 @@ See [forensic changes and evidence](docs/forensics-2026-10-12.md),
 [mode-specific native qualification](docs/native-qualification-forensics.md).
 Actual provider parsers, external execution and private imports remain disabled.
 
+The storage NEXT batch adds child-only fixture/test/header checkpoints, strict
+corrupt-ID and ZIP local-header refusal, a separate modified-page DELETE native
+positive control, and bounded offline page-sequence contracts. The retained 10k
+anomaly is still **UNRESOLVED**, not repaired. See [current storage follow-up](docs/storage-next-2026-10-12.md)
+for exact experimental scope, unchanged gates and unresolved physical surfaces.
+
 See [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), [capabilities](docs/capability-matrix.md), [format gate](docs/provider-format-validation.md), [security/data policy](docs/security-and-data.md), and [fixed evaluations](docs/validation.md).
 ## Windows実機・実形式の検証準備
 

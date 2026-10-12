@@ -64,6 +64,33 @@ ADAPTERS = {
 }
 
 
+def _local_zip_sizes(extra: bytes, decoded: int, compressed: int) -> tuple[int, int]:
+    """Resolve local ZIP64 sentinels; bounded TLVs never execute/extract data."""
+    position = 0
+    zip64 = None
+    while position < len(extra):
+        if len(extra) - position < 4:
+            raise ImportProblem("Invalid ZIP archive")
+        identity, length = struct.unpack_from("<HH", extra, position)
+        position += 4
+        if length > len(extra) - position:
+            raise ImportProblem("Invalid ZIP archive")
+        if identity == 1:
+            if zip64 is not None:
+                raise ImportProblem("Invalid ZIP archive")
+            zip64 = extra[position:position + length]
+        position += length
+    values = [decoded, compressed]
+    position = 0
+    for index, value in enumerate(values):
+        if value == 0xffffffff:
+            if zip64 is None or len(zip64) - position < 8:
+                raise ImportProblem("Invalid ZIP archive")
+            values[index] = struct.unpack_from("<Q", zip64, position)[0]
+            position += 8
+    return tuple(values)
+
+
 def _bounded_zip_json(blob: bytes, archive: zipfile.ZipFile, info: zipfile.ZipInfo) -> bytes:
     """Validate actual decoded size and stream termination, not a truncated prefix.
 
@@ -80,6 +107,14 @@ def _bounded_zip_json(blob: bytes, archive: zipfile.ZipFile, info: zipfile.ZipIn
     with archive.open(info):
         pass
     start = info.header_offset + _ZIP_LOCAL_HEADER.size + header[9] + header[10]
+    if not info.flag_bits & 8:
+        # With data descriptors, the local CRC/sizes may be placeholders. With
+        # ordinary/ZIP64 headers they must agree with the reviewed directory.
+        extra_start = info.header_offset + _ZIP_LOCAL_HEADER.size + header[9]
+        decoded, compressed = _local_zip_sizes(blob[extra_start:start], header[8], header[7])
+        if (header[6] != info.CRC or decoded != info.file_size
+                or compressed != info.compress_size):
+            raise ImportProblem("Invalid ZIP archive")
     encoded = blob[start:start + info.compress_size]
     if len(encoded) != info.compress_size:
         raise ImportProblem("Invalid ZIP archive")

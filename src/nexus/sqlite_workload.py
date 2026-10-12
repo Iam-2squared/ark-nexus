@@ -294,3 +294,85 @@ def run_backup_connections(root: Path, *, source_root: Path, rows: int,
     return {"status": "synthetic_PASS", "workloads": outcomes,
             "production_backup_api_captured": False, "storage_location_qualified": False,
             "private_import_allowed": False}
+
+
+def run_modified_pages_delete(root: Path, *, rows: int = DEFAULT_ROWS,
+                              connection_factory=sqlite3.connect, before_case=None,
+                              temp_store: str = "memory") -> dict:
+    """An additive DELETE control: modify the same pages before a late ABORT.
+
+    The original three-case workload is unchanged. Prior UPDATE rows must remain
+    after only the following failed statement is undone. Only new synthetic
+    files are accepted, retained on success/failure, and never repaired/deleted.
+    """
+    root = checked_path(root)
+    require(not root.exists() and type(rows) is int and 32 <= rows <= MAX_ROWS
+            and temp_store in ("memory", "file"))
+    root.mkdir(mode=0o700, parents=True, exist_ok=False)
+    store = seed_database(root / "delete" / "synthetic.sqlite3", rows)
+    if before_case is not None:
+        before_case("delete")
+    with closing(connection_factory(store.path)) as db:
+        configure_memory_temp(db)
+        if temp_store == "file":
+            db.execute("PRAGMA temp_store=FILE")
+        expected_temp = 1 if temp_store == "file" else 2
+        require(db.execute("PRAGMA temp_store").fetchone()[0] == expected_temp)
+        require(db.execute("PRAGMA journal_mode=DELETE").fetchone()[0] == "delete"
+                and db.execute("PRAGMA synchronous").fetchone()[0] >= 1)
+        db.execute("PRAGMA foreign_keys=ON")
+        db.execute("PRAGMA cache_size=16")
+        page_size = db.execute("PRAGMA page_size").fetchone()[0]
+        require(512 <= page_size <= 65536 and page_size & (page_size - 1) == 0)
+        require(db.execute(f"PRAGMA max_page_count={MAX_DATABASE_BYTES // page_size}")
+                .fetchone()[0] == MAX_DATABASE_BYTES // page_size)
+        db.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, 2 * 1024 * 1024)
+        deadline = time.monotonic() + MAX_SECONDS
+        db.set_progress_handler(lambda: int(time.monotonic() >= deadline), 1000)
+        touched = [0]
+
+        def tick():
+            touched[0] += 1
+            return 0
+
+        db.create_function("nexus_synthetic_tick", 0, tick)
+        try:
+            db.execute("CREATE TEMP TRIGGER synthetic_modified_pages AFTER UPDATE ON "
+                       "synthetic_statement_rows BEGIN SELECT nexus_synthetic_tick(); END")
+            db.execute("BEGIN IMMEDIATE")
+            db.execute("UPDATE synthetic_statement_rows SET amount=7")
+            require(touched[0] == rows)
+            before = logical_digest(db)
+            touched[0] = 0
+            try:
+                db.execute("UPDATE synthetic_statement_rows SET "
+                           "amount=CASE WHEN ordinal=? THEN -1 ELSE amount+1 END, "
+                           "payload=payload||' Synthetic changed'", (rows - 1,))
+            except sqlite3.IntegrityError:
+                pass
+            else:
+                raise ProbeProblem("Synthetic SQLite verification failed")
+            require(touched[0] == rows - 1 and db.in_transaction
+                    and logical_digest(db) == before and inspect_integrity(db)["ok"])
+            require(fts_query_counts(db) == (rows, 0))
+            db.execute("INSERT INTO message_search(message_search) VALUES('integrity-check')")
+            db.commit()
+            require(db.execute("SELECT sum(amount) FROM synthetic_statement_rows")
+                    .fetchone()[0] == 7 * rows)
+            committed = logical_digest(db)
+        finally:
+            db.set_progress_handler(None, 0)
+    with closing(connection_factory(store.path)) as reader:
+        configure_memory_temp(reader)
+        reader.execute("PRAGMA query_only=ON")
+        reader.execute("BEGIN")
+        require(logical_digest(reader) == committed and inspect_integrity(reader)["ok"]
+                and fts_query_counts(reader) == (rows, 0))
+    return {"status": "synthetic_PASS", "rows": rows, "journal_mode": "delete",
+            "temp_store": expected_temp, "cache_pages": 16, "page_size": page_size,
+            "max_database_bytes": MAX_DATABASE_BYTES, "prior_rows_updated": rows,
+            "partial_row_callbacks": rows - 1, "transaction_active_after_failure": True,
+            "statement_rollback": True, "prior_transaction_write_retained": True,
+            "reopened_logical_equal": True, "stored_integrity": True,
+            "fts_query_equal": True, "fts_internal_integrity": True,
+            "storage_location_qualified": False, "private_import_allowed": False}

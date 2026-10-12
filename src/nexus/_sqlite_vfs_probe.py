@@ -16,8 +16,14 @@ from contextlib import closing
 from pathlib import Path
 
 from nexus.private_storage import checked_path
-from nexus.sqlite_evidence import statement_journal_gates
-from nexus.sqlite_workload import ProbeProblem, require, run_backup_connections, run_workload
+from nexus.sqlite_evidence import modified_pages_delete_gate, statement_journal_gates
+from nexus.sqlite_workload import (
+    ProbeProblem,
+    require,
+    run_backup_connections,
+    run_modified_pages_delete,
+    run_workload,
+)
 
 KINDS = {
     "main_db": 0x100, "temp_db": 0x200, "transient_db": 0x400,
@@ -325,6 +331,16 @@ def capture(root: Path, rows: int) -> dict:
             for mode in ("delete", "wal")
         )
         require(experimental_backup["actual_python_connections_captured"])
+        modified_memory = run_modified_pages_delete(
+            root / "modified-pages-memory", rows=rows, connection_factory=connection,
+            before_case=lambda mode: stage("predirty_memory_" + mode),
+        )
+        modified_file = {"status": "NOT RUN", "reason": "compiled_memory_only"}
+        if file_control_supported:
+            modified_file = run_modified_pages_delete(
+                root / "modified-pages-file", rows=rows, connection_factory=connection,
+                before_case=lambda mode: stage("predirty_file_" + mode), temp_store="file",
+            )
         require(observer.callback_errors == 0 and observer.named_outside == 0)
         require(all(observer.counts[f"{mode}.main_db.write_calls"] > 0
                     and observer.counts[f"{mode}.main_db.open"] == 1
@@ -342,6 +358,13 @@ def capture(root: Path, rows: int) -> dict:
                 "counts": dict(sorted(observer.counts.items())), "workload": workload,
                 "file_positive_control": positive_control,
                 "experimental_backup_capture": experimental_backup,
+                "modified_pages_delete_control": {
+                    "memory_workload": modified_memory, "file_workload": modified_file,
+                    "gate": modified_pages_delete_gate(
+                        dict(observer.counts), file_control_supported=file_control_supported),
+                    "production_configuration": False, "storage_location_qualified": False,
+                    "private_import_allowed": False,
+                },
                 "statement_journal_gates": statement_journal_gates(
                     dict(observer.counts), file_control_supported=file_control_supported,
                 ),

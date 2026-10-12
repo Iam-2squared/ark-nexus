@@ -1,5 +1,13 @@
 # Bounded 10k data-forensics comparisons
 
+The [storage NEXT follow-up](storage-next-2026-10-12.md) adds child schema2:
+current collection count/digest/anonymous position, nine fixture/test boundaries,
+readonly count/header observations, and SQL/context-manager transaction phases.
+The historical development tables below are retained, not overwritten with new
+measurements. A schema2 comparison also requires complete bound lifecycle
+metadata. Old schema1 receipts remain strict/readable; neither format repairs
+the historical discrepancy. Unobserved mode adds no boundary file/SQL reads.
+
 The historical 10,000-message persisted-state discrepancy remains **OPEN /
 BLOCKED** until its root cause and an independent regression are established.
 A successful diagnostic comparison is not a correction. No owner database,

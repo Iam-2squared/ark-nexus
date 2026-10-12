@@ -15,6 +15,7 @@
 | `HistoryCursor` | source/account/project/Productとparser版への固定、bounded opaque cursor、観測時刻 |
 | `HistoryBatch` | 最大1,000 event、同一page内ID重複0、event/cursorのscope一致、coverage分類 |
 | `review_history_batch` | 期待scope/parser版一致、cursor停滞・後退と古い観測の拒否 |
+| `review_history_sequence` | 合成metadata最大64 page / 1,000 event、非隣接cursor loop・page間ID重複・途中terminal拒否 |
 
 Provider/ProductはConsumer ChatGPT、Consumer Claude、ChatGPT Work、Codex Local、
 Codex Cloud、Claude Codeを混ぜない。scope参照の構文検査は承認や匿名化の証明ではない。
@@ -29,6 +30,14 @@ cursorより新しい観測を含む矛盾、`complete=True`なのにnext cursor
 これは一pageの純粋contractであり、pageをまたぐrevision判定・永続cursor・transaction
 によるexactly-onceや同期鮮度の保証は未実装。未来の実adapterは別の証拠で検証する。
 `complete`は入力宣言であり、実export全体の完全性を証明するものではない。
+
+追加の`review_history_sequence`も渡されたtupleをメモリ内で確認するだけで、
+providerからpageを取得するloopではない。A→B→Aやprevious checkpointへの回帰、
+複数pageの同一ID、別scope/parser、不完全な途中pageのcursor欠損を拒否する。
+revision不明の同一IDを勝手に上書き・変換しない。terminal snapshotの
+`complete=False`は維持する。summaryは件数と分類だけでID/cursorを出さず、
+calls0/cost0/connected=false/execution_enabled=false/stored_records0を固定。
+永続checkpoint、承認authority、同期、外部実行経路は追加していない。
 
 ## taskのsimulation
 

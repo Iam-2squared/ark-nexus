@@ -29,6 +29,7 @@ _PLANNED_TASK_OPERATIONS = frozenset({
 MAX_PAGE_EVENTS = 1000
 MAX_PLAN_LEDGER = 1000
 MAX_SIMULATION_ATTEMPTS = 3
+MAX_HISTORY_REVIEW_PAGES = 64
 
 
 class PlanningProblem(ValueError):
@@ -209,6 +210,43 @@ def review_history_batch(batch: HistoryBatch, expected_scope: SourceScope,
             "events": len(batch.events), "complete": batch.complete,
             "has_next_cursor": batch.next_cursor is not None,
             "connected": False, "execution_enabled": False, "stored_records": 0}
+
+
+def review_history_sequence(batches: tuple[HistoryBatch, ...], expected_scope: SourceScope,
+                            expected_parser_version: str,
+                            previous_cursor: HistoryCursor | None = None) -> dict:
+    """Review bounded synthetic metadata, not a provider synchronization loop.
+
+    Reject non-adjacent cursor loops and repeated record IDs across these pages.
+    Revisions, persisted checkpoints and cross-process exactly-once import need
+    separately qualified future adapters; no IDs/cursors enter the summary.
+    """
+    if type(batches) is not tuple or not 1 <= len(batches) <= MAX_HISTORY_REVIEW_PAGES:
+        _reject()
+    cursors = set()
+    identities = set()
+    previous = previous_cursor
+    for index, batch in enumerate(batches):
+        summary = review_history_batch(batch, expected_scope, expected_parser_version, previous)
+        if index == 0 and previous is not None:
+            cursors.add(previous.opaque_token)
+        if index < len(batches) - 1 and not summary["has_next_cursor"]:
+            _reject()
+        for event in batch.events:
+            if event.external_id in identities or len(identities) >= MAX_PLAN_LEDGER:
+                _reject()
+            identities.add(event.external_id)
+        if batch.next_cursor is not None:
+            if batch.next_cursor.opaque_token in cursors:
+                _reject()
+            cursors.add(batch.next_cursor.opaque_token)
+        previous = batch.next_cursor
+    return {"mode": "contract_review", "contract_version": PLANNING_CONTRACT_VERSION,
+            "provider": expected_scope.provider, "product": expected_scope.product,
+            "pages": len(batches), "events": len(identities), "complete": batches[-1].complete,
+            "has_next_cursor": batches[-1].next_cursor is not None,
+            "connected": False, "execution_enabled": False, "stored_records": 0,
+            "provider_calls": 0, "cost_microunits": 0}
 
 
 @dataclass(frozen=True)

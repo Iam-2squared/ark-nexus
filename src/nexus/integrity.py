@@ -14,6 +14,12 @@ FTS_SHADOW_COLUMNS = {
     "data": ("id", "block"), "idx": ("segid", "term", "pgno"),
     "docsize": ("id", "sz"), "content": ("id", "c0", "c1", "c2"), "config": ("k", "v"),
 }
+PRIMARY_KEYS = (
+    ("source_instances", "id"), ("import_batches", "id"), ("projects", "id"),
+    ("conversations", "id"), ("messages", "id"), ("source_events", "id"),
+    ("tasks", "id"), ("evidence_links", "id"), ("sync_cursors", "source_id"),
+    ("audit_log", "id"),
+)
 
 REFERENCE_QUERIES = {
     "orphan_import_batches":
@@ -46,10 +52,22 @@ def require_references(db: sqlite3.Connection) -> None:
     """Metadata/FK guard within the caller's snapshot; no hash or FTS copy scan."""
     if not db.in_transaction:
         raise PrivateStorageError("Stored-record integrity is unavailable")
-    if db.execute("PRAGMA foreign_key_check").fetchone() is not None or any(
+    if invalid_primary_keys(db) or db.execute("PRAGMA foreign_key_check").fetchone() is not None or any(
         db.execute(query).fetchone()[0] for query in REFERENCE_QUERIES.values()
     ):
         raise PrivateStorageError("Stored-record integrity failed")
+
+
+def invalid_primary_keys(db: sqlite3.Connection) -> int:
+    """Metadata-only guard; NULL/BLOB/empty identities can escape FK checks.
+
+    Reuse the existing deep-report criterion without hashing content or copying
+    FTS on page reads. Reserved tables are inspected, never activated.
+    """
+    return sum(db.execute(
+        f"SELECT count(*) FROM {table} WHERE typeof({key}) != 'text' "
+        f"OR length({key})=0 OR instr({key},char(0))>0"
+    ).fetchone()[0] for table, key in PRIMARY_KEYS)
 
 
 def _fts_index_errors(db: sqlite3.Connection) -> int:
@@ -137,15 +155,7 @@ def inspect_integrity(db: sqlite3.Connection) -> dict:
         **{code: db.execute(query).fetchone()[0] for code, query in REFERENCE_QUERIES.items()},
         # TEXT PRIMARY KEY does not imply NOT NULL in SQLite's ordinary tables.
         # Unreferenced invalid keys escape both SQLite and foreign-key checks.
-        "invalid_primary_keys": sum(db.execute(
-            f"SELECT count(*) FROM {table} WHERE typeof({key}) != 'text' "
-            f"OR length({key})=0 OR instr({key},char(0))>0"
-        ).fetchone()[0] for table, key in (
-            ("source_instances", "id"), ("import_batches", "id"), ("projects", "id"),
-            ("conversations", "id"), ("messages", "id"), ("source_events", "id"),
-            ("tasks", "id"), ("evidence_links", "id"), ("sync_cursors", "source_id"),
-            ("audit_log", "id"),
-        )),
+        "invalid_primary_keys": invalid_primary_keys(db),
         "missing_search_rows": db.execute(
             "SELECT count(*) FROM (SELECT id FROM messages EXCEPT "
             "SELECT message_id FROM message_search)"

@@ -1,5 +1,12 @@
 # Native SQLite qualification — count-only forensic follow-up
 
+The subsequent [storage NEXT batch](storage-next-2026-10-12.md) preserves the
+original clean-page DELETE gate as NOT RUN and adds an independently derived
+`modified_pages_delete_control`. Its prior target-page UPDATE followed by late
+CHECK failure provides a distinct same-mode writing FILE control. The original
+local observations below remain historical evidence. The new control never
+qualifies physical unnamed paths, OS syscalls, production backup or private use.
+
 Repository: **Iam-2squared/ark-nexus** only. This additive work preserves the
 three original late-failing SQL cases, row/cache/page/time limits, source versus
 merge-checkout distinction, public artifact allowlist and existing CI jobs.
