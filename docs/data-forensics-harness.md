@@ -127,3 +127,17 @@ failure before correction; the corrected additive harness module has 42 PASS,
 with no new platform skips. Original fixed test/fixture and historical evidence
 were not modified. Later successful children do not establish a cause or repair
 for the historical persisted-state discrepancy.
+
+## CLI diagnostic line-ending correction
+
+The initial CI run `38253316698` for source
+`f8777babaa0c4f770a5bfb6ba80d1f7b1a485794` reproduced one failure in the new
+privacy test on Windows/Python 3.13. The captured diagnostic had the expected
+fixed message and the native Windows CRLF terminator; the new assertion had
+incorrectly required an LF-only terminator.
+
+The test now requires the **same exact message bytes** followed by
+`os.linesep.encode("ascii")`. Exit code 2 and exclusion of the synthetic private
+argument from stdout/stderr remain required. This changes only the new test's
+platform-specific line-ending expectation, adds no test/skip, and does not alter
+the CLI, frozen fixtures, migrations or secret-non-disclosure gate.

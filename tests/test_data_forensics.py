@@ -393,7 +393,7 @@ def test_private_cli_argument_error_does_not_echo_value():
                             cwd=forensic.CHECKOUT_ROOT, check=False)
     assert result.returncode == 2
     assert b"PRIVATE-SYNTHETIC-MARKER" not in result.stdout + result.stderr
-    assert result.stderr == b"Invalid command arguments. See --help for usage.\n"
+    assert result.stderr == b"Invalid command arguments. See --help for usage." + os.linesep.encode("ascii")
 
 
 def test_argv_scope_and_file_uri_classifier_do_not_confuse_unwatched_connections(tmp_path):

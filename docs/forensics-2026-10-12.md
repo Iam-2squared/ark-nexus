@@ -165,3 +165,23 @@ acceptance. Do not send raw DB/key/export/console data.
 - [FTS5 integrity command](https://www.sqlite.org/fts5.html#the_integrity_check_command)
 
 These describe interfaces and limits; they do not establish this anomaly's cause.
+
+## Initial source CI failure and bounded correction
+
+Run **38253316698**, source `f8777babaa0c4f770a5bfb6ba80d1f7b1a485794`,
+completed **1/5 PASS**: DOM47/build/Chromium7 passed; all four backend jobs
+failed. The new checkout-local pytest basetemp had no existing `tmp` parent in
+a fresh runner. Pytest creates the base with `parents=False`; 54 frozen fixture
+setups consequently errored. Linux each824 PASS/3 SKIP/54 ERROR; Windows also
+failed the new CLI diagnostic's LF-only byte expectation (actual fixed output
+uses CRLF). These are additive workflow/test portability defects, not evidence
+that the historical 10k disappearance recurred or was fixed.
+
+A bounded fresh-root run of one unchanged access fixture reproduced the missing
+parent error. Creating only its new private parent made that same frozen case
+pass. CI now checks the literal checkout-local `tmp` path before creating it;
+existing parent permissions are not modified, OS TEMP is not touched. The new
+CLI assertion requires the identical fixed diagnostic and exactly `os.linesep`,
+retaining exit2/private-value refusal. No frozen test, timeout or gate changes.
+The follow-up source must receive all five new CI results; the frontend success
+from this failed source cannot be reused as its result.
