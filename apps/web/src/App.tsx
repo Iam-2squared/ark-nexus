@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { AppShell, MetricCard, OrbitPanel, SingularityHub, StarNav, StatusConstellation,
+  type WorkspacePage } from './components/CosmicShell'
 
 type PageData<T> = {items:T[]; total:number; offset:number; next_offset:number|null}
 type Source = {id:string; provider:string; account_alias:string; connection_state:string; data_kind:string; last_sync_at:string|null; freshness?:string; not_connected_reason?:string}
@@ -11,7 +13,7 @@ type ImportCounts = {messages_inserted:number; messages_duplicates:number}
 type Receipt = {id:string; provider:string; account_alias:string; started_at:string; counts:ImportCounts; parser_version:string; data_kind:string; status:string; import_hash?:string; coverage?:string; missing_records_possible?:boolean}
 type ImportResult = {status:string; counts?:ImportCounts; conversations?:number; messages?:number; persisted?:boolean}
 type Connection = {id:string; label:string; connection_state:string; implemented:boolean; execution_enabled:boolean; official:Record<string,string>; obtainable:string; latency:string; permissions:string; provider?:string; product?:string; capabilities?:Record<string,string>; not_connected_reason?:string}
-type Page = 'overview'|'search'|'conversations'|'projects'|'connections'|'imports'
+type Page = WorkspacePage
 const emptyPage = <T,>():PageData<T> => ({items:[],total:0,offset:0,next_offset:null})
 
 class ApiError extends Error {
@@ -36,7 +38,7 @@ const tabs: {id:Page; label:string}[] = [
   {id:'search',label:'Universal Search'}, {id:'projects',label:'Projects'},
   {id:'connections',label:'Sources / Connections'}, {id:'imports',label:'Import History'}
 ]
-const headings:Record<Page,string> = {overview:'Intelligence, connected.',search:'Universal Search',
+const headings:Record<Page,string> = {overview:'Your intelligence. In orbit.',search:'Universal Search',
   conversations:'Conversation Library',projects:'Project Registry',connections:'Sources / Connections',imports:'Import History'}
 const time = (value:string|null) => value ? new Date(value).toLocaleString('ja-JP') : '日時未提供'
 const errorText = (err:unknown) => err instanceof Error ? err.message : 'Request failed'
@@ -268,22 +270,24 @@ export default function App() {
       : '保存 '+result.counts?.messages_inserted+'件 / 重複追加0件（既存 '+result.counts?.messages_duplicates+'件）。'}</p>}
   </article>
 
-  return <div className="layout">
-    <aside className="sidebar">
-      <div className="brand"><div className="symbol">N</div><div><b>ARK NEXUS</b><small>MULTI-AI WORKSPACE</small></div></div>
-      <div className="navtitle">WORKSPACE</div>
-      {tabs.map(t => <button type="button" className={page===t.id?'tab active':'tab'} key={t.id} onClick={()=>setPage(t.id)}>{t.label}</button>)}
-      <div className="sidebottom">LOCAL-FIRST<br/><small>V1 / SYNTHETIC ONLY</small></div>
-    </aside>
-    <main>
-      <header className="topbar"><span>WORKSPACE / {page.toUpperCase()}</span>
-        <span className={'pill '+(apiState==='unavailable'?'offline':'')}>{apiState==='ready'?'LOCAL API READY':apiState==='loading'?'CHECKING LOCAL API':apiState==='locked'?'LOCAL WORKSPACE LOCKED':'LOCAL API UNAVAILABLE'}</span>
-      </header>
-      <div className="body">
+  return <AppShell page={page} apiState={apiState}>
         {notice && <div className="error" role="alert">{notice} <button type="button" aria-label="Dismiss error" onClick={()=>setNotice('')}>×</button></div>}
-        <p className="eyebrow">ARK NEXUS · V1 UNIFIED HISTORY</p>
-        <h1>{headings[page]}</h1>
-        <p className="intro">出典を保った会話履歴と、プロジェクトの作業状況をひとつのローカルワークスペースへ。</p>
+        <div className={'page-heading '+(page==='overview'?'home-heading':'')}>
+          <div><p className="eyebrow">ARK NEXUS <span> / </span> V1 UNIFIED HISTORY</p>
+            <h1>{headings[page]}</h1><p className="intro">対話と知性が、ひとつの軌道に。<br/>出典を保った履歴を、このPCのワークスペースへ。</p></div>
+          {page==='overview'?<div className="universe-note" aria-hidden="true"><span>WHITE SPACE / 01</span>
+            <p>A quiet space<br/>for connected thinking.</p><span className="note-line" /></div>:null}
+        </div>
+        <section className={'workspace-map '+(page==='overview'?'orbit-map':'compact-map')}>
+          <StarNav routes={tabs} page={page} onNavigate={setPage} />{page==='overview'?<SingularityHub />:null}
+        </section>
+        {page==='overview'?<>
+          <section className="stats" aria-label="Stored history metrics">
+            {(['sources','conversations','messages','projects'] as const).map((key,index)=>
+              <MetricCard key={key} label={key.toUpperCase()} value={counts?counts[key]:null}
+                detail={key==='projects'?'manual mapping':'synthetic records'} index={index} />)}
+          </section><StatusConstellation />
+        </>:null}
         <div className="warning"><b>開発中:</b> 合成取り込みのみ実装済み。ChatGPT・Claude実形式の検証はBLOCKEDです。外部AIは未接続で、実行・自動同期は無効です。</div>
         {apiState==='locked' && <article className="panel"><h2>ローカルワークスペースを開く</h2>
           <p>このPCのNexusで発行したアクセスキーを入力してください。キーはこのタブのセッション内だけに保持します。</p>
@@ -299,12 +303,8 @@ export default function App() {
         </div>
 
         {page==='overview' && <>
-          <section className="stats">
-            {(['sources','conversations','messages','projects'] as const).map(key=>
-              <div key={key}><small>{key.toUpperCase()}</small><strong>{counts?counts[key].toLocaleString():'—'}</strong><span>{key==='projects'?'manual mapping':'synthetic records'}</span></div>)}
-          </section>
           <section className="panels">{importer}
-            <article className="panel"><h2>保存済みSources <span className="chip">MANUAL</span></h2>
+            <OrbitPanel><h2>保存済みSources <span className="chip">MANUAL</span></h2>
               {sources.length===0?<p className="muted">{counts?'保存済みSourceはありません。':'データ未取得。'}</p>:
                 sources.map(s=><div key={s.id} className="line"><b>{s.provider}</b><span>{s.account_alias}</span><small>手動取り込み · 合成のみ</small></div>)}
               <p>外部プロバイダとの接続: 0件</p>
@@ -312,7 +312,7 @@ export default function App() {
               {integrity && <p className={integrity.ok?'success':'error'} role="status" aria-label="Stored data integrity">{integrity.ok?'保存済みデータの整合性: PASS':'保存済みデータの整合性: FAIL'}
                 {' · 問題 '+Object.values(integrity.checks).reduce((a,b)=>a+b,0)+'件'}</p>}
               <p className="muted">整合性検査は保存済みレコードが対象です。プロバイダ側の履歴全件取得は未検証です。</p>
-            </article>
+            </OrbitPanel>
           </section>
         </>}
 
@@ -392,7 +392,5 @@ export default function App() {
           </article>
         </>}
         <footer>ARK NEXUS / V1 · NO LIVE SYNC · AI EXECUTION DISABLED · SYNTHETIC DATA ONLY</footer>
-      </div>
-    </main>
-  </div>
+  </AppShell>
 }

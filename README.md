@@ -1,5 +1,9 @@
 # ARK Nexus — Local-first Multi-AI Hub
 
+## White Space UI base
+
+Overviewを白い宇宙・中央のWhite Singularity・6個の星ナビへ刷新しました。他の主要画面も同じ明るいシェルを使用します。CSS/SVGのみ、追加依存なし。デザイン・操作・証跡の仕様は[White Space UI](docs/white-space-ui.md)。UI刷新は実形式AdapterやユーザーWindows実機の未検証Gateを解除しません。
+
 **V1 development build. Real provider formats are not verified; V1 is not officially PASS.**
 
 Independent repository: Iam-2squared/ark-nexus. ARK AI and ARK Terminal code, CI and roadmaps are separate.
