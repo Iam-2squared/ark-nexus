@@ -10,6 +10,21 @@ class PrivateStorageError(ValueError):
     """A fixed, path-free boundary failure suitable for generic API handling."""
 
 
+def configure_memory_temp(connection) -> None:
+    """SQLite TEMP_STORE=0 ignores temp_store. Refuse that build, never disk-fallback.
+
+    Journals/WAL/SHM remain adjacent to the private database; this setting is for
+    TEMP tables, transient indices and sort materialization, not encryption.
+    """
+    options = {row[0] for row in connection.execute("PRAGMA compile_options")}
+    builds = {option for option in options if option.startswith("TEMP_STORE=")}
+    if len(builds) != 1 or not builds <= {"TEMP_STORE=1", "TEMP_STORE=2", "TEMP_STORE=3"}:
+        raise PrivateStorageError("SQLite memory temporary storage is unavailable")
+    connection.execute("PRAGMA temp_store=MEMORY")
+    if connection.execute("PRAGMA temp_store").fetchone()[0] != 2:
+        raise PrivateStorageError("SQLite memory temporary storage is unavailable")
+
+
 def checked_path(value: Path) -> Path:
     path = value.expanduser().absolute()
     # One portable policy: Windows must not reinterpret a path as ADS/device/alias.

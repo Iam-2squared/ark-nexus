@@ -56,6 +56,26 @@ A second run requires a fresh dedicated tmp/e2e-data test directory because firs
 
 Public repo: **do not commit actual chats, archives, keys, credentials or databases**.
 
+## 2026-10-12 mega-batch
+
+White N/halo/ring/star styling is retained. Additions improve guarded writes,
+page navigation/drafts, conversation filters, stale-response/401 handling and
+accessible feedback. Multipart is bounded/memory-only; SQLite/backup connections
+verify MEMORY temp configuration. Statement journals, normal Windows profile ACL
+and crash/swap surfaces remain unqualified: **private exports remain forbidden;
+official V1 BLOCKED**.
+
+See [batch changes/evidence](docs/megabatch-2026-10-12.md),
+[temp controls/gates](docs/temp-containment.md),
+[manifest preflight](docs/adapter-preflight.md),
+[disabled connector research](docs/connector-contracts.md),
+[dependency review](docs/dependency-review.md). Opt-in synthetic measurement:
+
+    python -m nexus.synthetic_benchmark --root tmp/synthetic-benchmark/NEW_NAME --stages 1000 10000 50000
+
+Every destination must be NEW and checkout-local. Do not use the normal profile;
+the summary is not an owner-machine or performance PASS.
+
 See [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), [capabilities](docs/capability-matrix.md), [format gate](docs/provider-format-validation.md), [security/data policy](docs/security-and-data.md), and [fixed evaluations](docs/validation.md).
 ## Windows実機・実形式の検証準備
 

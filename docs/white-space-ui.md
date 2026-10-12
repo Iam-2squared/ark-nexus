@@ -10,7 +10,13 @@
 - 4 metricは半透明のOrbit panel。APIから取得した保存済み件数だけを表示する。取得前/lock後は「—」、API unavailable時は既存の取得時刻付きsnapshotとして扱う。デモ用の架空件数は追加しない。
 - 現在のAPI状態はheaderに表示。synthetic-only / live sync off / V1 BLOCKEDを明示し、実アカウント接続や自動タスク実行を示唆する操作を置かない。
 
-`components/CosmicShell.tsx`のAppShell / CosmicBackground / StarNav / SingularityHub / StatusConstellation / MetricCard / OrbitPanelを再利用する。ページの認証、CSRF header、session epoch、late-response rejection、import/search/project/paging handlersは変更しない。
+`components/CosmicShell.tsx`のAppShell / CosmicBackground / StarNav / SingularityHub / StatusConstellation / MetricCard / OrbitPanelを再利用する。2026-10-12 mega-batch指示に基づき、見た目を維持してAppのguard/session/race/pagingを改善する。認証/CSRF契約・既存評価とstyle.css/CosmicShellは維持する。
+
+## 2026-10-12 操作品質
+
+既存24 DOMに20件、既存5 Chromiumに2シナリオを追加。二重submit同期guard、abort/session、別reload失敗後の遅い401、検索条件変更時クリア、会話source/project、cursor停滞/重複ID、明示retry/aria-live/空状態を検証する。URL/historyに保存するのはpage名のみ。query/alias/本文/keyは保存しない。page移動のdraftはmemory保持、Lock/401で消去する。
+
+白いN/ring/6星/見出し/CSSは保持。baseline画像を実際に確認し、新source画像/Chromiumは対応HEADのCIで別検証する。[一括検証](megabatch-2026-10-12.md)。実形式・owner Windows・私的データGateは昇格しない。
 
 ## 操作・レスポンシブ
 

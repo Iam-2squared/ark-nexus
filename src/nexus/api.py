@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from nexus import __version__
 from nexus.access import local_access_key
@@ -23,6 +23,7 @@ from nexus.importers import (
     safe_json_payload,
     validate_account_alias,
 )
+from nexus.memory_upload import MemoryImportRoute
 from nexus.private_storage import PrivateStorageError
 from nexus.security import LocalBoundary
 from nexus.settings import database_path
@@ -33,9 +34,27 @@ class NewProject(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     repo_url: str | None = Field(default=None, max_length=500)
 
+    @field_validator("name", "repo_url")
+    @classmethod
+    def valid_text(cls, value):
+        if value is not None:
+            value.encode("utf-8")
+            if "\x00" in value or not value.strip():
+                raise ValueError("Invalid project text")
+        return value
+
 
 class SetProject(BaseModel):
     project_id: str | None = None
+
+    @field_validator("project_id")
+    @classmethod
+    def valid_identity(cls, value):
+        if value is not None:
+            value.encode("utf-8")
+            if "\x00" in value or len(value) > 1000:
+                raise ValueError("Invalid project identity")
+        return value
 
 
 def create_app(path: Path | None = None) -> FastAPI:
@@ -53,6 +72,7 @@ def create_app(path: Path | None = None) -> FastAPI:
         yield
 
     app = FastAPI(title="ARK Nexus Local API", version=__version__, lifespan=lifespan)
+    app.router.route_class = MemoryImportRoute
     # Importing this module must not create a database in the user's profile.
     if path is not None:
         initialize(app, path)
@@ -88,7 +108,7 @@ def create_app(path: Path | None = None) -> FastAPI:
 
     @app.get("/api/v1/imports")
     def list_imports(limit: Annotated[int, Query(ge=1, le=200)] = 100,
-                     offset: Annotated[int, Query(ge=0)] = 0):
+                     offset: Annotated[int, Query(ge=0, le=2**63 - 1)] = 0):
         return app.state.store.imports(limit, offset)
 
     @app.get("/api/v1/sources")
@@ -125,6 +145,8 @@ def create_app(path: Path | None = None) -> FastAPI:
                 import_hash=hashlib.sha256(blob).hexdigest(),
                 parser_version=PARSER_VERSION, conversations=parsed,
             )
+        except PrivateStorageError:
+            raise
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
@@ -138,13 +160,13 @@ def create_app(path: Path | None = None) -> FastAPI:
     @app.get("/api/v1/conversations")
     def list_conversations(source_id: str | None = None, project_id: str | None = None,
                            limit: Annotated[int, Query(ge=1, le=500)] = 100,
-                           offset: Annotated[int, Query(ge=0)] = 0):
+                           offset: Annotated[int, Query(ge=0, le=2**63 - 1)] = 0):
         return app.state.store.conversations_page(source_id, project_id, limit, offset)
 
     @app.get("/api/v1/conversations/{conversation_id}/messages")
     def list_messages(conversation_id: str,
                       limit: Annotated[int, Query(ge=1, le=1000)] = 200,
-                      offset: Annotated[int, Query(ge=0)] = 0):
+                      offset: Annotated[int, Query(ge=0, le=2**63 - 1)] = 0):
         result = app.state.store.messages_page(conversation_id, limit, offset)
         if result is None:
             raise HTTPException(status_code=404, detail="Conversation not found")
@@ -154,7 +176,7 @@ def create_app(path: Path | None = None) -> FastAPI:
     def search(q: Annotated[str, Query(max_length=300)],
                project_id: str | None = None, source_id: str | None = None,
                limit: Annotated[int, Query(ge=1, le=100)] = 100,
-               offset: Annotated[int, Query(ge=0)] = 0):
+               offset: Annotated[int, Query(ge=0, le=2**63 - 1)] = 0):
         return app.state.store.search_page(q, project_id, source_id, limit, offset)
 
     @app.get("/api/v1/projects")
@@ -169,6 +191,8 @@ def create_app(path: Path | None = None) -> FastAPI:
     def assign_project(conversation_id: str, body: SetProject):
         try:
             found = app.state.store.assign_conversation(conversation_id, body.project_id)
+        except PrivateStorageError:
+            raise
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         if not found:

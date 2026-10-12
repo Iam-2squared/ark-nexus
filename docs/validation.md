@@ -1,5 +1,12 @@
 # V1 evaluation definition and evidence
 
+## Current mega-batch evidence pointer
+
+The 2026-10-12 [batch report](megabatch-2026-10-12.md) distinguishes current
+implementation/local synthetic results from historical runs below. Original
+fixtures/gates are retained; final source-HEAD CI and reviewed artifact evidence
+are recorded in Draft PR1. Temp qualification remains [partially BLOCKED](temp-containment.md).
+
 The initial PASS evidence and test fixture files are preserved. New regression cases add coverage; they do not replace or weaken the existing 1,000-message reimport or 30 token-search assertions.
 
 Baseline inspected: branch feature/v1-unified-history-scaffold at a2aa0e9c739380695842973b2a095e8f195dd354; main 91a493a9ffb636c85b016874f1f721685adab12e. Only Draft PR #1 was open and no reviews/comments were present. GitHub Actions run 38116378322 passed all 5 jobs. Earlier run 38116329877 failed Ruff F841 for an unused variable; that baseline failure had already been corrected.

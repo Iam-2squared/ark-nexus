@@ -23,7 +23,7 @@ def inspect_integrity(db: sqlite3.Connection) -> dict:
         "stale_search_rows": db.execute(
             "SELECT count(*) FROM message_search f JOIN messages m ON m.id=f.message_id "
             "JOIN conversations c ON c.id=m.conversation_id "
-            "WHERE f.content != m.content OR f.title != c.title"
+            "WHERE f.content IS NOT m.content OR f.title IS NOT c.title"
         ).fetchone()[0],
         "content_hash_mismatches": sum(
             hashlib.sha256(r[0].encode("utf-8")).hexdigest() != r[1]

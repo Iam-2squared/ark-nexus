@@ -26,6 +26,8 @@
 
 ## 停止・失敗したとき
 
+2026-10-12: [temp controls/remaining Gates](temp-containment.md)も事前に確認する。Multipartはmemory-only、SQLiteは接続毎MEMORYを確認するが、statement journal/OS残留/通常profile ACLの実機証拠は未取得。既存report.jsonのGate名・共有allowlistは変えない。runner成功をowner PASSへ流用しない。
+
 Ctrl+Cを1回押し、後始末と終了を待つ。通常の中断では自分の子サーバーだけを止め、試行中GateをFAIL/interruptedとして残す。事前検査や証跡保存時の中断・権限不足ではJSONが作れない場合があり、その結果は未取得。強制的なウィンドウ終了・OS停止で後始末が完了する保証はない。次回に8788番が使用中なら停止して、自分の起動したプロセスかを本人が確認する。他PIDを自動終了する機能はない。
 
 既存のテスト領域を再利用・上書き・自動削除しない。再試行は新しいrun-idになる。新規テスト領域への書込権限がない、checkout変更中、外部Git directory、junction等がある場合は固定診断で拒否する。システムACLや通常profileを修正して再試行しない。

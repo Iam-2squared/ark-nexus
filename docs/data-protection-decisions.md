@@ -10,9 +10,9 @@
 | -journal / -wal / -shm | 各Store connection前のpath検査。backupのsource snapshot | journal/WALはデータpage、SHMは共有状態。crash後残存・OS snapshot・同期folderは別問題 [1] |
 | backup / restore | 検証済みの新規pathへのcopy、既存destinationは上書きしない | 平文copy。新規private destinationのOS保護と復旧後のACLを所有者が別途確認 |
 | HTTP access key / 将来DB key | 現在のkeyは認証用、Git除外、固定診断。probeは専用合成key | DB keyではない。同一OSユーザー/管理者/SYSTEMは保護境界外。API_TOKEN環境変数も共有・dumpしない |
-| multipart / SQLite temp | ASGI入力を8 MiB+64 KiBまでに制限。SQLite標準driver | インストール済みStarletteは1 MiB超をOS tempへspoolし得る。形式拒否より先に起きる。SQLite sort/tempのdisk配置もbuild/設定次第 [1]。private temp隔離・容量・中断残存は未解決、private import前に検証する |
+| multipart / SQLite temp | 入力上限＋15秒/同時2import。memory-only multipart、SQLite build確認＋接続毎MEMORY | Disk spool不使用の合成回帰追加。MEMORYはstatement journal隔離の保証ではない [1]。native観測/Windows owner/swap/crash未完了。[Temp詳細](temp-containment.md)。private exportは禁止 |
 | browser memory / session storage | HTTP no-store、tab session key、lockでsnapshotと入力を消し旧responseを破棄 | session storageは暗号化vaultではない。拡張機能・devtools・crash/session復旧・同一ユーザーの侵害は未防御。共有端末で私的データを使わない |
-| console / CI artifacts | probe固定JSON/理由のみ、子ログ破棄。CIは匿名reportと2枚の合成PNGだけ | 私的fixtureや通常profileをCIへ投入しない。stdout/trace/error-contextはartifact化しない。証跡は1日で失効、private dataの保持方針とは別 |
+| console / CI artifacts | probe固定JSON/理由のみ、子ログ破棄。CIは匿名reportとallowlisted4枚の合成PNGだけ | 私的fixtureや通常profileをCIへ投入しない。stdout/trace/error-contextはartifact化しない。証跡は1日で失効、private dataの保持方針とは別 |
 
 合成probeは新しい`tmp/windows-evidence/<run-id>`だけを保護する。通常のLOCALAPPDATAやLinux profileを自動でchmod/Set-Aclするツールではない。dirが共有・同期・network・link経由なら私的データ利用を停止する。OS別の実測を必要とする。
 

@@ -29,7 +29,7 @@ Database/key paths containing symlinks, NTFS junctions or hard links are rejecte
 
 Retention is indefinite until the owner requests deletion. There is no HTTP deletion endpoint, scheduled cleanup or source-deletion propagation. Destructive removal or replacing an existing database requires separate explicit authorization. Raw uploaded archives, filenames and message payloads are not stored in audit entries. Successful import receipts preserve batch hashes/counts/version/source; rejected input is not retained as payload or a successful receipt.
 
-Not storing rejected input in Nexus tables does not prove it never reaches OS temporary storage. The installed Starlette multipart implementation can spool uploads over 1 MiB before format rejection, and SQLite can create sort/temp files outside the profile. Private temp containment, crash remnants and normal Windows profile ACLs remain unqualified. See the [storage-surface and encryption decision matrix](data-protection-decisions.md). Do not use the synthetic-only build with private exports.
+Not storing rejected input alone does not prove absence from OS storage. Imports now use a bounded memory-only parser instead of disk-capable spooling. Each SQLite/backup connection verifies MEMORY temp configuration/build support. Body reception has a15-second deadline; each process permits two imports, then returns fixed429 before reading input. Forwarded/proxy metadata and ambiguous framing are refused. These controls do not qualify statement journals, crash/swap remnants or normal Windows profile ACLs. See [temp containment/platform limits](temp-containment.md) and the [storage-surface decision matrix](data-protection-decisions.md). Do not use private exports.
 
 ## Integrity and recovery
 

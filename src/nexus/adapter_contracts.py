@@ -2,7 +2,7 @@
 
 import hashlib
 import re
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, fields, replace
 from typing import Literal, Protocol
 
 from nexus.importers import (
@@ -33,7 +33,7 @@ class AdapterIdentity:
         }:
             raise ImportProblem("Invalid adapter product identity")
         for value in (self.parser_version, self.schema_evidence_id):
-            if not isinstance(value, str) or not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", value):
+            if type(value) is not str or not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", value):
                 raise ImportProblem("Invalid adapter review metadata")
 
 
@@ -62,7 +62,8 @@ class ParsedHistory:
 
     def __post_init__(self) -> None:
         if (type(self.identity) is not AdapterIdentity or type(self.coverage) is not HistoryCoverage
-                or self.contract_version != CONTRACT_VERSION or self.trust != "untrusted_source_data"
+                or type(self.contract_version) is not str or self.contract_version != CONTRACT_VERSION
+                or type(self.trust) is not str or self.trust != "untrusted_source_data"
                 or type(self.conversations) is not tuple):
             raise ImportProblem("Invalid adapter result contract")
 
@@ -87,6 +88,14 @@ class UnverifiedRealAdapter:
         raise ImportProblem("Real-format adapter BLOCKED: approved schema evidence not verified")
 
 
+def _normalized_text(value: object, name: str, max_length: int = 200000) -> str:
+    # Normalized parser output must be inert builtin data. A str subclass can
+    # override equality, hashing or encoding and evade the validation below.
+    if type(value) is not str:
+        raise ImportProblem("Invalid normalized text type")
+    return require_str(value, name, max_length)
+
+
 def dry_run_history(adapter: HistoryAdapter, payload: bytes,
                     expected_identity: AdapterIdentity) -> dict:
     """Review-only normalization check. No registry, DB, account access or evidence promotion.
@@ -98,14 +107,30 @@ def dry_run_history(adapter: HistoryAdapter, payload: bytes,
     if type(payload) is not bytes or not payload or len(payload) > MAX_UNCOMPRESSED_BYTES:
         raise ImportProblem("Invalid adapter dry-run payload")
     try:
-        if type(expected_identity) is not AdapterIdentity or adapter.identity != expected_identity:
+        if type(expected_identity) is not AdapterIdentity:
+            raise ImportProblem("Adapter version requires explicit review")
+        expected_identity.__post_init__()
+        # Keep the reviewed value independent of objects shared with a parser.
+        # frozen dataclasses are not a security sandbox or a deep immutability guarantee.
+        reviewed_identity = replace(expected_identity)
+        parser_identity = adapter.identity
+        if type(parser_identity) is not AdapterIdentity:
+            raise ImportProblem("Adapter version requires explicit review")
+        parser_identity.__post_init__()
+        if parser_identity != reviewed_identity:
             raise ImportProblem("Adapter version requires explicit review")
         result = adapter.parse(payload)
-        if type(result) is not ParsedHistory or result.identity != expected_identity:
+        if type(result) is not ParsedHistory:
             raise ImportProblem("Adapter result identity mismatch")
         result.__post_init__()
         result.identity.__post_init__()
         result.coverage.__post_init__()
+        final_parser_identity = adapter.identity
+        if type(final_parser_identity) is not AdapterIdentity:
+            raise ImportProblem("Adapter version requires explicit review")
+        final_parser_identity.__post_init__()
+        if result.identity != reviewed_identity or final_parser_identity != reviewed_identity:
+            raise ImportProblem("Adapter result identity mismatch")
         if len(result.conversations) > 10000:
             raise ImportProblem("Adapter conversation limit exceeded")
         messages = 0
@@ -114,8 +139,8 @@ def dry_run_history(adapter: HistoryAdapter, payload: bytes,
         for conversation in result.conversations:
             if type(conversation) is not Conversation or type(conversation.messages) is not list:
                 raise ImportProblem("Invalid normalized conversation")
-            identity = require_str(conversation.external_id, "conversation identity", 1000)
-            title = require_str(conversation.title, "title", 1000)
+            identity = _normalized_text(conversation.external_id, "conversation identity", 1000)
+            title = _normalized_text(conversation.title, "title", 1000)
             if identity in conversation_ids:
                 raise ImportProblem("Ambiguous normalized conversation identity")
             conversation_ids.add(identity)
@@ -125,15 +150,19 @@ def dry_run_history(adapter: HistoryAdapter, payload: bytes,
                 messages += 1
                 if messages > MAX_MESSAGES or type(message) is not Message:
                     raise ImportProblem("Invalid normalized message collection")
-                message_id = require_str(message.external_id, "message identity", 1000)
-                role = require_str(message.role, "role", 60)
-                content = require_str(message.content, "content")
+                message_id = _normalized_text(message.external_id, "message identity", 1000)
+                role = _normalized_text(message.role, "role", 60)
+                content = _normalized_text(message.content, "content")
+                if message.occurred_at is not None and type(message.occurred_at) is not str:
+                    raise ImportProblem("Invalid normalized timestamp type")
                 source_timestamp(message.occurred_at)
                 if message_id in message_ids:
                     raise ImportProblem("Ambiguous normalized message identity")
                 message_ids.add(message_id)
                 encoded = content.encode("utf-8")
-                if message.content_sha256 != hashlib.sha256(encoded).hexdigest():
+                if (type(message.content_sha256) is not str
+                        or not re.fullmatch(r"[a-f0-9]{64}", message.content_sha256)
+                        or message.content_sha256 != hashlib.sha256(encoded).hexdigest()):
                     raise ImportProblem("Normalized content hash mismatch")
                 text_bytes += (len(encoded) + len(message_id.encode("utf-8"))
                                + len(role.encode("utf-8")) + len(message.occurred_at or ""))

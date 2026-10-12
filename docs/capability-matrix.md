@@ -37,6 +37,12 @@ The code catalog in `src/nexus/connectors.py` keeps researched support separate 
 
 ## Official sources
 
+2026-10-12: [pure connector planning contracts](connector-contracts.md) add
+source/account/product/project and cursor boundaries plus bounded task-state
+simulation. These contracts perform0 provider calls, cost0 and no persistent
+sync/task execution. Researched support above is unchanged; six connectors stay
+not_connected/disabled and V2–V5 stay LOCKED.
+
 1. [ChatGPT export](https://help.openai.com/en/articles/7260999-exporting-your-chatgpt-history-and-data)
 2. [Claude export](https://support.claude.com/en/articles/9450526-export-your-claude-data)
 3. [ChatGPT Work overview](https://learn.chatgpt.com/docs/use-chatgpt)

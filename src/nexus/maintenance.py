@@ -7,7 +7,7 @@ from pathlib import Path
 
 from nexus.cli import PrivateArgumentParser
 from nexus.integrity import inspect_integrity
-from nexus.private_storage import checked_database_path, prepare_database
+from nexus.private_storage import checked_database_path, configure_memory_temp, prepare_database
 
 
 def copy_database(source: Path, destination: Path) -> None:
@@ -18,15 +18,17 @@ def copy_database(source: Path, destination: Path) -> None:
     created = destination.stat(follow_symlinks=False)
     try:
         with closing(sqlite3.connect(source.as_uri() + "?mode=ro", uri=True)) as reader:
+            configure_memory_temp(reader)
             reader.execute("BEGIN")
             if not inspect_integrity(reader)["ok"]:
                 raise ValueError("Source database failed stored-record integrity check")
             checked_database_path(destination)
             with closing(sqlite3.connect(destination)) as writer:
+                configure_memory_temp(writer)
                 reader.backup(writer)
                 if not inspect_integrity(writer)["ok"]:
                     raise ValueError("Copied database failed stored-record integrity check")
-    except Exception:
+    except BaseException:
         # Only the new file created by this invocation can be removed on failure.
         if destination.exists() and not destination.is_symlink() and not destination.is_junction():
             current = destination.stat(follow_symlinks=False)
@@ -42,7 +44,7 @@ def main() -> None:
     args = parser.parse_args()
     try:
         copy_database(args.source, args.destination)
-    except (OSError, ValueError, sqlite3.Error):
+    except (OSError, ValueError, sqlite3.Error, KeyboardInterrupt):
         print("Database copy refused or failed. No existing destination was overwritten.",
               file=sys.stderr)
         raise SystemExit(1) from None

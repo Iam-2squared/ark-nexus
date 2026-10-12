@@ -9,7 +9,7 @@ from importlib import resources
 from pathlib import Path
 
 from nexus.integrity import inspect_integrity
-from nexus.private_storage import checked_database_path, prepare_database
+from nexus.private_storage import checked_database_path, configure_memory_temp, prepare_database
 
 
 def utcnow() -> str:
@@ -29,13 +29,14 @@ class Store:
     def connect(self):
         checked_database_path(self.path)
         conn = sqlite3.connect(self.path, timeout=15)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys=ON")
-        conn.execute("PRAGMA busy_timeout=15000")
         try:
+            conn.row_factory = sqlite3.Row
+            configure_memory_temp(conn)
+            conn.execute("PRAGMA foreign_keys=ON")
+            conn.execute("PRAGMA busy_timeout=15000")
             yield conn
             conn.commit()
-        except Exception:
+        except BaseException:
             conn.rollback()
             raise
         finally:

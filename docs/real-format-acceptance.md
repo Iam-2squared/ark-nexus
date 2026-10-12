@@ -61,6 +61,8 @@ schema確認の共有用メモには、レビュー済みの構造キー、型�
 
 ## 有効化Gate
 
+2026-10-12の[manifest-only preflight](adapter-preflight.md)は宣言と型・参照方針の準備を検証するだけで、ファイル/実exportを読み込まず、承認や匿名性を証明せず、すべての宣言を満たしてもBLOCKED/disabledを固定する。parser dry-runのidentity型・hash・共有値変更の回帰を追加した。実形式parserのschemaは追加していない。
+
 承認済み実サンプル適合、provenance/ID collision、incremental/reimport、Unicode/long history、異常入力全rollback、privacy/ACL/backup、ユーザーWindows実機、正確なHEADのCIを別々に評価する。サンプルの未検証scopeを消さず、対応Productとparser versionを明示する。両consumer製品と実機Gateが完了するまで **V1公式判定BLOCKED**。
 
 ## 公式参照（2026-10-11確認）
