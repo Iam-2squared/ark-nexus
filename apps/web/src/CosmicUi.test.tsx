@@ -3,11 +3,43 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { SingularityHub } from './components/CosmicShell'
 
 beforeEach(()=>{ sessionStorage.clear(); vi.stubGlobal('fetch',vi.fn()) })
 afterEach(()=>{ cleanup(); vi.unstubAllGlobals() })
 
 describe('White Singularity UI, locked synthetic-only workspace',()=>{
+  it('draws a white void, bent light and a foreground disk rather than a lettered sphere',()=>{
+    const {container}=render(<><SingularityHub /><SingularityHub /></>)
+    const visuals=container.querySelectorAll('svg.white-hole-visual')
+    expect(visuals).toHaveLength(2)
+    for(const visual of visuals) {
+      expect(visual.getAttribute('aria-hidden')).toBe('true')
+      expect(visual.querySelector('.white-hole-void')?.getAttribute('fill')).toBe('#fff')
+      expect(visual.querySelectorAll('.lensed-light path').length).toBeGreaterThanOrEqual(12)
+      expect(visual.querySelectorAll('.accretion-front path').length).toBeGreaterThanOrEqual(12)
+      expect(visual.querySelector('text,image,foreignObject')).toBeNull()
+    }
+    const ids=[...container.querySelectorAll('svg defs [id]')].map(n=>n.id)
+    expect(ids.length).toBeGreaterThan(0)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(container.querySelector('[href],[xlink\\:href]')).toBeNull()
+  })
+
+  it('uses a plain white canvas without the previous background nebula',async()=>{
+    const files = await import('node:'+'fs') as {readFileSync:(path:string,encoding:'utf8')=>string}
+    const style=document.createElement('style')
+    style.textContent=files.readFileSync('src/style.css','utf8')
+    document.head.appendChild(style)
+    try {
+      const {container}=render(<App />)
+      const background=container.querySelector('.cosmic-background')!
+      expect(getComputedStyle(background).backgroundColor).toBe('rgb(255, 255, 255)')
+      expect(getComputedStyle(background).backgroundImage).toBe('none')
+      expect(container.querySelector('.cosmic-nebula')).toBeNull()
+    } finally { style.remove() }
+  })
+
   it('has a decorative white cosmos and a labelled central hub without fake counts',async()=>{
     const {container}=render(<App />)
     await screen.findByText('LOCAL WORKSPACE LOCKED')

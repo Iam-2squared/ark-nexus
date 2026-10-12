@@ -46,6 +46,13 @@ test('white space: responsive constellation has no overflow or obscured star con
     }
     await nav.getByRole('button',{name:'Overview',exact:true}).click()
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
+    const hole=page.locator('svg.white-hole-visual')
+    await expect(hole).toBeVisible()
+    const holeBox=await hole.boundingBox()
+    expect(holeBox!.x).toBeGreaterThanOrEqual(0)
+    expect(holeBox!.x+holeBox!.width).toBeLessThanOrEqual(width)
+    await expect(page.locator('.cosmic-background')).toHaveCSS('background-color','rgb(255, 255, 255)')
+    await expect(page.locator('.cosmic-background')).toHaveCSS('background-image','none')
   }
   expect(await page.locator('.star-link').first().evaluate(el=>getComputedStyle(el).transitionDuration)).toBe('0s')
   await page.getByRole('link',{name:'Skip to workspace'}).focus()
@@ -65,6 +72,9 @@ test('white space: real synthetic API snapshot and desktop singularity screensho
   for(const metric of await page.locator('.stats strong').allTextContents()) expect(metric).toMatch(/^[0-9,]+$/)
   await expect(page.getByText('SYNTHETIC ONLY',{exact:true})).toBeVisible()
   await expect(page.getByText('V1 GATE / BLOCKED',{exact:true})).toBeVisible()
+  await expect(page.locator('.white-hole-void')).toHaveAttribute('fill','#fff')
+  await expect(page.locator('.white-hole-visual text,.white-hole-visual image')).toHaveCount(0)
+  await expect(page.locator('.white-hole-visual')).toHaveCSS('pointer-events','none')
   // Unlock scrolls to its form; evidence must show the actual top of the home UI.
   await page.evaluate(()=>window.scrollTo(0,0))
   expect(await page.evaluate(()=>window.scrollY)).toBe(0)

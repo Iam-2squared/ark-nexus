@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 
 export type WorkspacePage = 'overview'|'search'|'conversations'|'projects'|'connections'|'imports'
 type ApiState = 'loading'|'ready'|'unavailable'|'locked'
@@ -9,7 +9,6 @@ const stars = [[84,168],[201,419],[325,95],[434,689],[551,218],[652,857],[751,69
 
 export function CosmicBackground() {
   return <div className="cosmic-background" aria-hidden="true">
-    <div className="cosmic-nebula" />
     <svg className="cosmic-stars" viewBox="0 0 1440 1000" preserveAspectRatio="none" focusable="false">
       {stars.map(([x,y],i)=><g key={i} transform={`translate(${x} ${y})`}>
         <circle r={i%3===0?2:1} />{i%4===0?<path d="M-6 0H6M0-6V6" />:null}
@@ -17,6 +16,71 @@ export function CosmicBackground() {
       <path className="distant-orbit" d="M-100 720Q620-170 1550 460M-140 940Q730 220 1580 780" />
     </svg>
   </div>
+}
+
+const lensCurve='M-24 262C142 255 220 251 248 230C276 210 269 184 286 145C307 93 348 68 400 68C454 68 495 95 515 145C532 184 525 210 552 230C585 253 682 255 824 262'
+const frontDisk='M0 260C158 242 268 234 400 234S645 242 800 260C649 296 523 310 400 310S150 296 0 260Z'
+const lensBands=Array.from({length:18},(_,i)=>i)
+const diskBands=Array.from({length:24},(_,i)=>i)
+
+// Bounded static vectors: no animation loop, textures, network or simulation.
+function WhiteBlackHole() {
+  const id=useId()
+  return <svg className="white-hole-visual" viewBox="0 0 800 440" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id={id+'-light'} x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stopColor="#9db8d3" stopOpacity="0" />
+        <stop offset=".18" stopColor="#99b4d0" stopOpacity=".38" />
+        <stop offset=".4" stopColor="#d0deee" stopOpacity=".85" />
+        <stop offset=".55" stopColor="#b9cfea" stopOpacity=".9" />
+        <stop offset=".82" stopColor="#9bb5d2" stopOpacity=".38" />
+        <stop offset="1" stopColor="#9db8d3" stopOpacity="0" />
+      </linearGradient>
+      <linearGradient id={id+'-disk'} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#fff" />
+        <stop offset=".3" stopColor="#e2ebf7" stopOpacity=".9" />
+        <stop offset=".7" stopColor="#b5cce7" stopOpacity=".55" />
+        <stop offset="1" stopColor="#eef3fa" stopOpacity="0" />
+      </linearGradient>
+      <radialGradient id={id+'-rim'}>
+        <stop offset=".9" stopColor="#fff" stopOpacity="0" />
+        <stop offset=".96" stopColor="#c4d5e9" stopOpacity=".5" />
+        <stop offset="1" stopColor="#e9f0f9" stopOpacity="0" />
+      </radialGradient>
+      <filter id={id+'-glow'} x="-20%" y="-50%" width="140%" height="200%" colorInterpolationFilters="sRGB">
+        <feGaussianBlur stdDeviation="5" />
+      </filter>
+      <linearGradient id={id+'-fade'} x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stopColor="#fff" stopOpacity="0" />
+        <stop offset=".16" stopColor="#fff" /><stop offset=".84" stopColor="#fff" />
+        <stop offset="1" stopColor="#fff" stopOpacity="0" />
+      </linearGradient>
+      <mask id={id+'-disk-mask'}><rect width="800" height="440" fill={'url(#'+id+'-fade)'} /></mask>
+    </defs>
+    <g transform="rotate(-12 400 240)">
+      <g className="white-hole-glow" filter={'url(#'+id+'-glow)'} fill="none" stroke={'url(#'+id+'-light)'}>
+        <path d={lensCurve} strokeWidth="36" opacity=".7" />
+        <path d="M-20 270Q400 205 820 270" strokeWidth="30" opacity=".5" />
+      </g>
+      <g className="lensed-light" fill="none" stroke={'url(#'+id+'-light)'}>
+        {lensBands.map(i=><path key={i} d={lensCurve} strokeWidth={i%3===0?2:1}
+          opacity={.38+i%4*.12} transform={`translate(400 262) scale(${1+i*.012}) translate(-400 -262)`} />)}
+        <path d={lensCurve} stroke="#fff" strokeWidth="3" opacity=".95" />
+        <path d="M112 275C220 273 256 303 288 321C341 357 460 357 512 321C546 303 584 273 688 275"
+          strokeWidth="7" opacity=".3" />
+      </g>
+      <circle cx="400" cy="219" r="143" fill={'url(#'+id+'-rim)'} />
+      <circle className="white-hole-void" cx="400" cy="219" r="130" fill="#fff" />
+      <circle className="photon-edge" cx="400" cy="219" r="130" fill="none" stroke="#bdcfe5" strokeWidth=".8" opacity=".6" />
+      <g className="accretion-front" mask={'url(#'+id+'-disk-mask)'}>
+        <path d={frontDisk} fill={'url(#'+id+'-disk)'} />
+        {diskBands.map(i=><path key={i} fill="none" stroke={i%4===0?'#fff':'url(#'+id+'-light)'}
+          strokeWidth={i%4===0?1.8:1} opacity={i%4===0?.85:.7}
+          d={`M0 ${258+i*.45}C150 ${242+i*1.6} 274 ${236+i*2.4} 400 ${236+i*2.4}S650 ${242+i*1.6} 800 ${258+i*.45}`} />)}
+        <path d="M0 256C162 239 284 230 400 230S642 239 800 256" fill="none" stroke="#fff" strokeWidth="3" />
+      </g>
+    </g>
+  </svg>
 }
 
 function RouteIcon({page}:{page:WorkspacePage}) {
@@ -50,10 +114,7 @@ export function SingularityHub() {
   return <div className="singularity-hub" role="img" aria-label="White Singularity · ARK Nexusの中心核">
     <div className="hub-coordinate" aria-hidden="true">01 / WHITE SINGULARITY</div>
     <div className="singularity-visual" aria-hidden="true">
-      <div className="gravity-halo" /><div className="gravity-ring ring-far" />
-      <div className="singularity-core"><span>N</span></div>
-      <div className="gravity-ring ring-near" /><div className="lensing-light" />
-      <span className="core-satellite satellite-one" /><span className="core-satellite satellite-two" />
+      <WhiteBlackHole />
     </div>
     <div className="hub-caption" aria-hidden="true"><b>NEXUS</b><span>ONE CENTER. EVERY ORBIT.</span></div>
   </div>
