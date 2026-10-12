@@ -91,6 +91,28 @@ def _local_zip_sizes(extra: bytes, decoded: int, compressed: int) -> tuple[int, 
     return tuple(values)
 
 
+def _zip_descriptor(blob: bytes, info: zipfile.ZipInfo, position: int, wide: bool) -> None:
+    """Bounded descriptor fields must agree with the reviewed directory.
+
+    The optional signature can coincide with an actual CRC; try both bounded
+    encodings rather than treating a magic-valued CRC as necessarily a signature.
+    Stdlib's checked next-entry/directory boundary prevents borrowing bytes from
+    a different entry. ZIP64 descriptor widths follow the local size sentinels.
+    """
+    end = getattr(info, "_end_offset", None)
+    if type(end) is not int or not 0 <= position <= end <= len(blob):
+        raise ImportProblem("Invalid ZIP archive")
+    fields = struct.Struct("<IQQ" if wide else "<III")
+    positions = [position]
+    if blob[position:position + 4] == b"PK\x07\x08":
+        positions.append(position + 4)
+    for start in positions:
+        if start + fields.size <= end:
+            if fields.unpack_from(blob, start) == (info.CRC, info.compress_size, info.file_size):
+                return
+    raise ImportProblem("Invalid ZIP archive")
+
+
 def _bounded_zip_json(blob: bytes, archive: zipfile.ZipFile, info: zipfile.ZipInfo) -> bytes:
     """Validate actual decoded size and stream termination, not a truncated prefix.
 
@@ -115,6 +137,9 @@ def _bounded_zip_json(blob: bytes, archive: zipfile.ZipFile, info: zipfile.ZipIn
         if (header[6] != info.CRC or decoded != info.file_size
                 or compressed != info.compress_size):
             raise ImportProblem("Invalid ZIP archive")
+    else:
+        _zip_descriptor(blob, info, start + info.compress_size,
+                        header[7] == 0xffffffff or header[8] == 0xffffffff)
     encoded = blob[start:start + info.compress_size]
     if len(encoded) != info.compress_size:
         raise ImportProblem("Invalid ZIP archive")

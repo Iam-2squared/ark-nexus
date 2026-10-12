@@ -5,7 +5,7 @@
 Storage NEXT start: sourcef6650024ac254ddc2e68104ce851fdf40f918b09 /
 run38254117100 passed5/5: Linux878/3 platform SKIP, Windows879/2 platform SKIP,
 Ruff4, DOM47/build/Chromium7. [Storage NEXT evidence](storage-next-2026-10-12.md)
-adds91 regressions, fixture/header diagnosis and a distinct modified-page DELETE
+adds135 regressions, fixture/header diagnosis and a distinct modified-page DELETE
 positive control. Historical10k remains UNRESOLVED; OS physical storage and owner
 gates remain unqualified. These start results are not the changed source's CI.
 

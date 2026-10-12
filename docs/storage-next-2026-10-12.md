@@ -106,9 +106,10 @@ replace final source-HEAD matrix CI.
 | P0 lifecycle/schema2 | Readonly headers, hook isolation, strict private-field/type refusal, limits, collection/boundary qualification | 19 |
 | P1 corrupt unreferenced IDs | NULL/empty/NUL/BLOB project IDs passed FK checks and page reads; four public routes now refuse fixed503 without repair | 16 |
 | P3 ZIP local/central mismatch | Four codecs × CRC/compressed/decoded contradictions were accepted201; non-descriptor local/ZIP64 values now require exact central agreement before decoding | 12 |
+| P3 ZIP descriptor follow-up | Four codecs × ordinary/ZIP64 × CRC/size/missing descriptor refusals; valid unsigned and signature-valued CRC controls | 44 |
 | P2 modified-page DELETE experiment | Bounded prior UPDATE plus late CHECK abort, reopen/FTS/FK/hash equality, strict counters/private scope/limits | 19 |
 | P4 page-sequence contract | New memory-only metadata review rejects A→B→A cursor loops, repeated IDs, wrong scope/parser, premature terminal pages and bounded-page/event overflow | 17 |
-| **Total additive** | No old test, fixture, migration, scorer, timeout, skip, UI or CI assertion relaxed | **91** |
+| **Total additive** | No old test, fixture, migration, scorer, timeout, skip, UI or CI assertion relaxed | **135** |
 
 The ZIP proof was rerun against the exact committed start-version importer in
 an isolated process with required synthetic account metadata. All12 correct
@@ -117,6 +118,24 @@ after it; no source/message/import rows were inserted on rejection. An initial
 new test omitted required account metadata and received an unrelated field422;
 that test-construction error is not counted as a vulnerability. Existing valid
 ordinary/data-descriptor/ZIP64/prefixed four-codec controls remain unchanged.
+
+The first source96546c32a8707f19f568061c843248945e4a961d completed CI5/5
+(run38267126218; Linux969/3, Windows970/2, DOM47/build/Chromium7) before this
+independent descriptor follow-up. All four matrix native logs captured the new
+modified-page DELETE FILE1/556/1,201,300 and MEMORY0; original WAL remained
+FILE2/1,968/4,157,400 and MEMORY0. Those results are **not** final-head evidence
+for the subsequent parser change. Final source/run must be checked again.
+
+An isolated process using that exact committed importer accepted all40 descriptor
+requests201:32 contradictions/missing-descriptor cases failed their new refusal
+assertions and8 valid unsigned controls passed. A single ordinary CRC mismatch
+also explicitly reproduced201 versus expected422. The fixed decoder validates
+bounded mandatory descriptor fields against the central directory before parsing
+content. It supports optional signatures, ordinary/ZIP64 widths, and a CRC equal
+to the signature constant; bytes beyond the stdlib-checked entry boundary cannot
+satisfy a descriptor. Valid descriptors still import; invalid ones return fixed422
+without any source/import/message writes. The new file has44 additive tests;
+the original ZIP fixtures and existing codec/stream/limits remain unchanged.
 
 The ID guard reuses the existing deep-report predicate in the same active page
 snapshot. It does not hash text/copy FTS for page requests and does not enable
@@ -199,3 +218,21 @@ performance gate. Owner follow-up remains minimal: separately approved/anonymize
 small Consumer samples and reviewed report.json plus manual gate outcomes only;
 never raw DB/export/console/key/SID/path. Physical-storage qualification and the
 unresolved10k defect still forbid private export use even after matrix CI success.
+
+### Local execution boundary exception
+
+The local DOM/build commands inherited a shared npm cache outside the Nexus
+checkout and generated **two npm diagnostic log files** there. Metadata audit
+correlated the two completion times with those commands; no other recent cache
+file was found. Therefore checkout-external local writes cannot be reported as
+zero. Those logs were not read, uploaded, removed or rewritten. Local npm runs
+were stopped after discovery. Any future local npm command must explicitly bind
+its process-only cache/log destination to a new checked Nexus ignored root;
+no persistent OS/npm configuration or shared-cache cleanup is authorized.
+Other repository/project source writes, main writes, paid/provider calls,
+private-data transmission and original-evidence deletion remain zero.
+
+After the descriptor follow-up, a new checkout-local uninstrumented full suite
+completed **1013 PASS / 3 platform SKIP** on Work Linux/Python3.12.14/SQLite3.53.1.
+The six paired comparisons above were measured before the44 descriptor tests,
+not retroactively reclassified as final-head full-suite evidence.
