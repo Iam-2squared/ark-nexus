@@ -99,7 +99,6 @@ function RouteIcon({page}:{page:WorkspacePage}) {
 export function StarNav({routes,page,onNavigate}:{routes:StarRoute[];page:WorkspacePage;onNavigate:(page:WorkspacePage)=>void}) {
   return <nav className="star-nav" aria-label="Workspace constellation">
     <svg className="constellation-lines" viewBox="0 0 1000 420" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-      <path d="M175 97L500 188 820 80M500 188L853 233M500 188L686 350M500 188L318 350M500 188L143 233" />
       <ellipse cx="500" cy="200" rx="350" ry="157" />
     </svg>
     {routes.map((route,i)=><button type="button" key={route.id} aria-label={route.label}

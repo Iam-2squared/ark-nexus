@@ -37,6 +37,7 @@ describe('White Singularity UI, locked synthetic-only workspace',()=>{
       expect(getComputedStyle(background).backgroundColor).toBe('rgb(255, 255, 255)')
       expect(getComputedStyle(background).backgroundImage).toBe('none')
       expect(container.querySelector('.cosmic-nebula')).toBeNull()
+      expect(container.querySelector('.constellation-lines path')).toBeNull()
     } finally { style.remove() }
   })
 

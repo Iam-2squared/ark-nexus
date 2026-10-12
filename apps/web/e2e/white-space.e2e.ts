@@ -53,6 +53,7 @@ test('white space: responsive constellation has no overflow or obscured star con
     expect(holeBox!.x+holeBox!.width).toBeLessThanOrEqual(width)
     await expect(page.locator('.cosmic-background')).toHaveCSS('background-color','rgb(255, 255, 255)')
     await expect(page.locator('.cosmic-background')).toHaveCSS('background-image','none')
+    await expect(page.locator('.constellation-lines path')).toHaveCount(0)
   }
   expect(await page.locator('.star-link').first().evaluate(el=>getComputedStyle(el).transitionDuration)).toBe('0s')
   await page.getByRole('link',{name:'Skip to workspace'}).focus()
