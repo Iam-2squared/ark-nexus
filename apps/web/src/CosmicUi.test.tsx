@@ -9,6 +9,18 @@ beforeEach(()=>{ sessionStorage.clear(); vi.stubGlobal('fetch',vi.fn()) })
 afterEach(()=>{ cleanup(); vi.unstubAllGlobals() })
 
 describe('White Singularity UI, locked synthetic-only workspace',()=>{
+  it('softens the enlarged light disk at the SVG frame edges',async()=>{
+    const files = await import('node:'+'fs') as {readFileSync:(path:string,encoding:'utf8')=>string}
+    const style=document.createElement('style')
+    style.textContent=files.readFileSync('src/style.css','utf8')
+    document.head.appendChild(style)
+    try {
+      const {container}=render(<SingularityHub />)
+      const visual=container.querySelector('.white-hole-visual')!
+      expect(getComputedStyle(visual).maskImage).toMatch(/^linear-gradient\(/)
+    } finally { style.remove() }
+  })
+
   it('draws a black void with bent light and a foreground disk rather than a lettered sphere',()=>{
     const {container}=render(<><SingularityHub /><SingularityHub /></>)
     const visuals=container.querySelectorAll('svg.white-hole-visual')
