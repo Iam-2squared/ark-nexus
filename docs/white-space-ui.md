@@ -22,7 +22,7 @@ Desktopは周辺に星ノード、mobileはコアの下に3列×2行のラベル
 
 ## 評価と証跡
 
-既存DOM20件、Chromium2シナリオ、backend/Linux/Windows Gateは保持。追加DOM7件は中心核・未知件数・6導線・focus・未認証のprivate requestゼロ・装飾の非操作性、未focusのskip linkのclip、拡大した光の両端のsoft maskを確認する。形状・背景の追加2件は修正前に失敗を確認し、空洞/曲がる光/前景disk、文字・raster画像なし、複数HubのSVG ID非衝突、単色白背景/霧なしを固定する。中心色の期待値は所有者の指定により白から黒へ変更し、既存の機能評価は変更しない。
+既存DOM20件、Chromium2シナリオ、backend/Linux/Windows Gateは保持。追加DOM8件は中心核・未知件数・6導線・focus・未認証のprivate requestゼロ・装飾の非操作性、未focusのskip linkのclip、光の両端のsoft mask、重力fieldの2軸fade/captionのscene内配置を確認する。形状・背景の追加2件は修正前に失敗を確認し、空洞/曲がる光/前景disk、文字・raster画像なし、複数HubのSVG ID非衝突、単色白背景/霧なしを固定する。中心色の期待値は所有者の指定により白から黒へ変更し、既存の機能評価は変更しない。
 
 追加Chromium3シナリオで、locked状態の6導線/keyboard focus、320/390/768/1024/1440px全ページの横overflowとclick、reduced-motion/skip link、実際の合成API取得/lockを検証する。さらに、5幅でSVGの画面内収まり・単色白背景・黒い中心、文字/画像なし・装飾による操作遮断なしをassertする。最終HEADのCIと画像確認が終わるまで実ブラウザーPASS/参考画像への適合確認済みとはしない。
 
@@ -41,3 +41,5 @@ CI artifactは明示した4枚の合成PNGだけを1日保存する：overview-m
 source a477117d69b31932b8599a3cac08e3c00773e978のrun38201877782は5/5 PASS（DOM26/build/Chromium5、backend既存件数）。その後、所有者が中心を黒にするよう指定したため、SVGの中心fillのみ#000へ変更した。DOMの黒い中心条件を修正前に失敗確認し、Chromiumでも5幅すべてで黒をassertする。白背景、発光disk、形状、操作、安全境界の条件は維持。今回HEADのCI/画像は別に検証してDraft PRに記録する。
 
 円を拡大したsource 9eb83d42a8c9631ce3859c4816472e2a652c0dbdのrun38204909543は5/5 PASS（DOM26/build/Chromium5、輪の実直径/既存backend件数）。画像で発光disk両端の切断を確認したため、追加DOM回帰を失敗確認して両端10%のsoft maskを追加した。5幅の実ブラウザーでもsoft maskを要求し、輪の最低直径と既存操作条件は維持。仕上げHEADのCI/画像を別に検証する。
+
+巨大なgravity fieldを導入したsource a119995642cd8c4dfa85e1d26ea716203e0197e2のrun38207186867は5/5 PASS（DOM27/build/Chromium5、backend既存件数）。画像でfield上下の切断、captionとmetricへの接近、黒い中心を横断する点線を確認した。追加DOM回帰を失敗確認して縦横fadeのintersectとscene内caption配置を固定し、点線nav ellipseは表示せず独自のinflow軌道を使用する。5幅のブラウザー検証にも同条件を追加。既存の直径/操作/機能Gateは維持し、仕上げHEADのCI/画像を別に検証する。

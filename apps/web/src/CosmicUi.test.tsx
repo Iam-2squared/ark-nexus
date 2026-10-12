@@ -9,6 +9,20 @@ beforeEach(()=>{ sessionStorage.clear(); vi.stubGlobal('fetch',vi.fn()) })
 afterEach(()=>{ cleanup(); vi.unstubAllGlobals() })
 
 describe('White Singularity UI, locked synthetic-only workspace',()=>{
+  it('fades the gravity field on both axes and keeps its caption inside the scene',async()=>{
+    const files = await import('node:'+'fs') as {readFileSync:(path:string,encoding:'utf8')=>string}
+    const style=document.createElement('style')
+    style.textContent=files.readFileSync('src/style.css','utf8')
+    document.head.appendChild(style)
+    try {
+      const {container}=render(<SingularityHub />)
+      const visual=container.querySelector('.white-hole-visual')!
+      expect(getComputedStyle(visual).maskImage.split('linear-gradient(')).toHaveLength(3)
+      expect(getComputedStyle(visual).maskComposite).toBe('intersect')
+      expect(getComputedStyle(container.querySelector('.hub-caption')!).position).toBe('absolute')
+    } finally { style.remove() }
+  })
+
   it('softens the enlarged light disk at the SVG frame edges',async()=>{
     const files = await import('node:'+'fs') as {readFileSync:(path:string,encoding:'utf8')=>string}
     const style=document.createElement('style')
