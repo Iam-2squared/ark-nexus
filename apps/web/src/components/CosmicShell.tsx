@@ -45,8 +45,8 @@ export function StarNav({routes,page,onNavigate}:{routes:StarRoute[];page:Worksp
   </nav>
 }
 
-export function SingularityHub() {
-  return <div className="singularity-hub" role="img" aria-label="White Singularity · ARK Nexusの中心核">
+export function SingularityHub({hidden=false}:{hidden?:boolean}) {
+  return <div className="singularity-hub" hidden={hidden} role="img" aria-label="White Singularity · ARK Nexusの中心核">
     <div className="hub-coordinate" aria-hidden="true">01 / WHITE SINGULARITY</div>
     <div className="singularity-visual" aria-hidden="true">
       <BlackHoleScene />

@@ -78,6 +78,7 @@ describe('bounded static singularity renderer',()=>{
       expect(loseContext).not.toHaveBeenCalled()
       const replay=createSingularityRenderer(canvas)!
       expect(replay.draw(400,600,1)).toBe(true)
+      expect(gl.drawArrays).toHaveBeenCalledOnce()
       canvas.remove()
       replay.dispose()
       expect(gl.deleteProgram).toHaveBeenCalledTimes(2)

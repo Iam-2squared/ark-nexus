@@ -279,7 +279,7 @@ export default function App() {
             <p>One center.<br/>Infinite connections.</p><span className="note-line" /></div>:null}
         </div>
         <section className={'workspace-map '+(page==='overview'?'orbit-map':'compact-map')}>
-          <StarNav routes={tabs} page={page} onNavigate={setPage} />{page==='overview'?<SingularityHub />:null}
+          <StarNav routes={tabs} page={page} onNavigate={setPage} /><SingularityHub hidden={page!=='overview'} />
         </section>
         {page==='overview'?<>
           <section className="stats" aria-label="Stored history metrics">

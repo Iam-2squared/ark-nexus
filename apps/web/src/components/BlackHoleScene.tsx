@@ -34,6 +34,7 @@ export function BlackHoleScene() {
     function draw() {
       if(!active) return
       const rect=canvas.getBoundingClientRect()
+      if(rect.width<=0 || rect.height<=0) return // Hidden on other pages; retain the existing frame.
       if(scene!.draw(rect.width,rect.height,window.devicePixelRatio||1)) setRenderer('webgl2')
       else { setRenderer('fallback'); scene!.dispose(); active=false }
     }

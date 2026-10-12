@@ -6,6 +6,9 @@ void main() {
   gl_Position = vec4(p * 2. - 1., 0., 1.);
 }`
 
+// Only the owned decorative framebuffer: weak keys, no imported data or storage.
+const retainedFrames=new WeakMap<HTMLCanvasElement,{context:WebGL2RenderingContext;width:number;height:number}>()
+
 export function createSingularityRenderer(canvas:HTMLCanvasElement) {
   if(typeof WebGL2RenderingContext==='undefined') return null
   let gl:WebGL2RenderingContext|null
@@ -22,11 +25,15 @@ export function createSingularityRenderer(canvas:HTMLCanvasElement) {
   function dispose() {
     if(disposed) return
     disposed=true
+    context.useProgram(null)
     if(program) context.deleteProgram(program)
     for(const shader of shaders) context.deleteShader(shader)
     // StrictMode replays effects on the same connected canvas. Release the owned context
     // after removal, while deleting shader/program resources on every cleanup.
-    if(!canvas.isConnected && !context.isContextLost()) context.getExtension('WEBGL_lose_context')?.loseContext()
+    if(!canvas.isConnected || context.isContextLost()) {
+      retainedFrames.delete(canvas)
+      if(!context.isContextLost()) context.getExtension('WEBGL_lose_context')?.loseContext()
+    }
   }
   try {
     for(const [type,source] of [[context.VERTEX_SHADER,vertexSource],[context.FRAGMENT_SHADER,fragmentSource]] as const) {
@@ -55,6 +62,12 @@ export function createSingularityRenderer(canvas:HTMLCanvasElement) {
           Math.sqrt(900_000/(cssWidth*cssHeight)))
         const width=Math.max(1,Math.floor(cssWidth*scale)),height=Math.max(1,Math.floor(cssHeight*scale))
         if(width===lastWidth && height===lastHeight) return true
+        const retained=retainedFrames.get(canvas)
+        if(retained?.context===context && retained.width===width && retained.height===height
+          && canvas.width===width && canvas.height===height) {
+          lastWidth=width;lastHeight=height
+          return true
+        }
         try {
           canvas.width=width; canvas.height=height
           context.viewport(0,0,width,height)
@@ -63,6 +76,7 @@ export function createSingularityRenderer(canvas:HTMLCanvasElement) {
           context.drawArrays(context.TRIANGLES,0,3)
           if(context.getError()!==context.NO_ERROR) return false
           lastWidth=width; lastHeight=height
+          retainedFrames.set(canvas,{context,width,height})
           return true
         } catch { return false }
       },

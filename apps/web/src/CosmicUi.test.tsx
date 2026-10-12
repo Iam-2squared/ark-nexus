@@ -94,6 +94,19 @@ describe('White Singularity UI, locked synthetic-only workspace',()=>{
     expect(screen.getByRole('button',{name:'Import fixture'}).hasAttribute('disabled')).toBe(true)
   })
 
+  it('retains the same static canvas across page navigation to avoid retracing on each return',async()=>{
+    const {container}=render(<App />)
+    const canvas=container.querySelector('.singularity-canvas')
+    const hub=screen.getByRole('img',{name:'White Singularity · ARK Nexusの中心核'})
+    await userEvent.click(screen.getByRole('button',{name:'Universal Search'}))
+    expect(container.querySelector('.singularity-canvas')).toBe(canvas)
+    expect(hub.hasAttribute('hidden')).toBe(true)
+    await userEvent.click(screen.getByRole('button',{name:'Overview'}))
+    expect(container.querySelector('.singularity-canvas')).toBe(canvas)
+    expect(hub.hasAttribute('hidden')).toBe(false)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('offers a keyboard skip link and never makes decorative stars focusable',()=>{
     const {container}=render(<App />)
     const link=screen.getByRole('link',{name:'Skip to workspace'})
