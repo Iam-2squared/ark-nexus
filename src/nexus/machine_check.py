@@ -97,7 +97,18 @@ def powershell(repo: Path, script: str, *arguments: str) -> dict:
         raise ValueError("Windows inspection failed")
     if len(result.stdout) > 4096:
         raise ValueError("Windows inspection result too large")
-    data = json.loads(result.stdout.decode("utf-8-sig"))
+    def inspection_object(pairs: list[tuple[str, object]]) -> dict:
+        data = {}
+        for name, value in pairs:
+            if name in data:
+                raise ValueError("Invalid Windows inspection classification")
+            data[name] = value
+        return data
+
+    try:
+        data = json.loads(result.stdout.decode("utf-8-sig"), object_pairs_hook=inspection_object)
+    except (UnicodeError, ValueError, RecursionError):
+        raise ValueError("Invalid Windows inspection classification") from None
     if (type(data) is not dict or set(data) != fields[script]
             or any(type(value) is not bool for value in data.values())):
         raise ValueError("Invalid Windows inspection classification")

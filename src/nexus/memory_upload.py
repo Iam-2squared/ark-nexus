@@ -7,6 +7,7 @@ subclass is exercised against the installed Starlette on every CI platform.
 """
 
 import io
+import re
 
 from fastapi import HTTPException
 from fastapi.routing import APIRoute
@@ -15,6 +16,51 @@ from starlette import formparsers
 from starlette.datastructures import Headers
 
 from nexus.importers import MAX_UPLOAD_BYTES
+
+_TOKEN = rb"[!#$%&'*+\-.^_`|~0-9a-zA-Z]+"
+_HEADER_TYPE = re.compile(_TOKEN + rb"(?:/" + _TOKEN + rb")?")
+_PARAMETER = re.compile(
+    rb";[ \t]*(" + _TOKEN + rb")[ \t]*=[ \t]*(?:" + _TOKEN
+    + rb'|"(?:[\x20-\x21\x23-\x5b\x5d-\xff]|\\[\x20-\xff])*")[ \t]*',
+)
+
+
+def checked_options(value: str | bytes, allowed: set[bytes]):
+    """Reject ambiguity before the upstream parser discards duplicate parameters.
+
+    Quoted semicolons/escaped quotes remain valid. Extended parameter syntax,
+    control bytes and unknown parameters have no V1 interpretation. The header
+    stays bounded and no original value appears in the diagnostic.
+    """
+    raw = value.encode("latin-1") if isinstance(value, str) else value
+    raw = raw.strip(b" \t")
+    if not raw or len(raw) > 2048:
+        raise formparsers.MultiPartException("Invalid multipart parameters")
+    main = raw.split(b";", 1)[0].strip(b" \t")
+    if not _HEADER_TYPE.fullmatch(main):
+        raise formparsers.MultiPartException("Invalid multipart parameters")
+    offset = raw.find(b";")
+    seen = set()
+    while offset != -1 and offset < len(raw):
+        match = _PARAMETER.match(raw, offset)
+        if match is None:
+            raise formparsers.MultiPartException("Invalid multipart parameters")
+        name = match[1].lower()
+        if name not in allowed or name in seen:
+            raise formparsers.MultiPartException("Ambiguous multipart parameters")
+        seen.add(name)
+        offset = match.end()
+    return parse_options_header(raw)
+
+
+def checked_multipart_type(value: str | bytes):
+    content_type, options = checked_options(value, {b"boundary", b"charset"})
+    boundary = options.get(b"boundary", b"")
+    charset = options.get(b"charset", b"utf-8").lower()
+    if (content_type != b"multipart/form-data" or not 1 <= len(boundary) <= 200
+            or charset not in {b"utf-8", b"utf8"}):
+        raise formparsers.MultiPartException("Unsupported multipart encoding")
+    return content_type, options
 
 
 class MemoryUpload(io.BytesIO):
@@ -56,9 +102,18 @@ class MemoryMultipart(formparsers.MultiPartParser):
 
     def on_headers_finished(self):
         # Do not call the upstream allocation hook: its spool factory uses OS TEMP.
-        disposition, options = parse_options_header(self._current_part.content_disposition)
+        disposition, options = checked_options(
+            self._current_part.content_disposition, {b"name", b"filename"},
+        )
         if disposition != b"form-data" or self._charset.lower() not in {"utf-8", "utf8"}:
             raise formparsers.MultiPartException("Unsupported multipart encoding")
+        for header, value in self._current_part.item_headers:
+            if header == b"content-transfer-encoding":
+                raise formparsers.MultiPartException("Unsupported multipart encoding")
+            if header == b"content-type":
+                _, part_options = checked_options(value, {b"charset"})
+                if part_options.get(b"charset", b"utf-8").lower() not in {b"utf-8", b"utf8"}:
+                    raise formparsers.MultiPartException("Unsupported multipart encoding")
         name = options.get(b"name", b"").decode("utf-8")
         if name not in {"provider", "account_alias", "dry_run", "file"} or name in self.seen:
             raise formparsers.MultiPartException("Ambiguous multipart fields")
@@ -100,6 +155,7 @@ class MemoryMultipart(formparsers.MultiPartParser):
 
     async def parse(self):
         try:
+            checked_multipart_type(self.headers.get("content-type", ""))
             form = await super().parse()
             if not self.complete:
                 raise formparsers.MultiPartException("Incomplete multipart envelope")
@@ -116,10 +172,10 @@ class MemoryImportRoute(APIRoute):
             return handler
 
         async def bounded_import(request):
-            content_type, options = parse_options_header(request.headers.get("content-type", ""))
-            boundary = options.get(b"boundary", b"")
-            if content_type != b"multipart/form-data" or not 1 <= len(boundary) <= 200:
-                raise HTTPException(422, "Invalid multipart input")
+            try:
+                checked_multipart_type(request.headers.get("content-type", ""))
+            except formparsers.MultiPartException:
+                raise HTTPException(422, "Invalid multipart input") from None
             parser = MemoryMultipart(request.headers, request.stream())
             try:
                 try:

@@ -59,6 +59,10 @@ class LocalBoundary:
         if b"content-length" in headers and b"transfer-encoding" in headers:
             await reject(400, "Ambiguous request framing")
             return
+        coding = headers.get(b"transfer-encoding")
+        if coding is not None and coding.strip(" \t").lower() != "chunked":
+            await reject(400, "Unsupported request framing")
+            return
         peer = scope.get("client")
         try:
             local_peer = bool(peer) and ip_address(peer[0]).is_loopback
@@ -97,7 +101,10 @@ class LocalBoundary:
         except (UnicodeError, ValueError):
             await reject(422, "Invalid request fields")
             return
-        limit = MAX_IMPORT_BODY if scope["path"] == "/api/v1/imports" else MAX_JSON_BODY
+        importing = scope["path"] == "/api/v1/imports" and scope["method"] == "POST"
+        # The larger envelope is reserved for the same POSTs protected by the
+        # import semaphore. Listing/history requests keep the ordinary body cap.
+        limit = MAX_IMPORT_BODY if importing else MAX_JSON_BODY
         declared = headers.get(b"content-length")
         if declared is not None:
             if not declared.isascii() or not declared.isdecimal():
@@ -139,7 +146,6 @@ class LocalBoundary:
 
             await self.app(scope, bounded_receive, private_send)
 
-        importing = scope["path"] == "/api/v1/imports" and scope["method"] == "POST"
         if importing and not self.import_capacity.acquire(blocking=False):
             await reject(429, "Local import capacity reached; retry explicitly")
             return

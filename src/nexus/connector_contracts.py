@@ -53,15 +53,24 @@ def _text(value: object, maximum: int) -> None:
         _reject()
 
 
-def _time(value: object) -> datetime:
+def _source_time(value: object) -> None:
     if type(value) is not str:
         _reject()
     try:
         source_timestamp(value)
-        return datetime.fromisoformat(value)
-    except (ImportProblem, ValueError):
+    except ImportProblem:
         _reject()
-    raise AssertionError("unreachable")
+
+
+def _time(value: object) -> datetime:
+    # These are Nexus observation/review clocks, not a vendor's raw occurrence
+    # representation. Reject precision datetime would silently truncate before
+    # comparing freshness or a review lease. No rounding or coercion is allowed.
+    _source_time(value)
+    if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
+                        r"(?:\.[0-9]{1,6})?(?:Z|[+-][0-9]{2}:[0-9]{2})", value):
+        _reject()
+    return datetime.fromisoformat(value)
 
 
 def _digest(value: object) -> None:
@@ -106,7 +115,7 @@ class SourceObservation:
         _scope(self.scope)
         _text(self.external_id, 1000)
         if self.occurred_at is not None:
-            _time(self.occurred_at)
+            _source_time(self.occurred_at)
         _time(self.observed_at)
         if (type(self.kind) is not str
                 or self.kind not in {"history_record", "status_snapshot", "coverage_gap"}
@@ -267,6 +276,16 @@ class ReviewCheckpoint:
             _reject()
 
 
+def _checkpoint_fingerprint(checkpoint: ReviewCheckpoint) -> str:
+    checkpoint.__post_init__()
+    values = (PLANNING_CONTRACT_VERSION, checkpoint.scope.provider, checkpoint.scope.product,
+              checkpoint.scope.source_ref, checkpoint.scope.account_ref, checkpoint.scope.project_ref,
+              checkpoint.task_ref, checkpoint.review_ref, checkpoint.intent_sha256,
+              checkpoint.approved_at, checkpoint.expires_at)
+    return hashlib.sha256(json.dumps(values, ensure_ascii=False,
+                                     separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
 PlanStage = Literal["awaiting_review", "reviewed", "simulation_running", "simulation_paused",
                     "simulation_complete", "simulation_failed", "simulation_cancelled"]
 _STAGES = frozenset({"awaiting_review", "reviewed", "simulation_running", "simulation_paused",
@@ -282,6 +301,7 @@ class TaskPlanState:
     stage: PlanStage = "awaiting_review"
     attempts: int = 0
     review_ref: str | None = field(default=None, repr=False)
+    review_sha256: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         _scope(self.scope)
@@ -294,6 +314,10 @@ class TaskPlanState:
             _reject()
         if self.review_ref is not None:
             _token(self.review_ref)
+        if self.review_sha256 is not None:
+            _digest(self.review_sha256)
+        if (self.review_ref is None) != (self.review_sha256 is None):
+            _reject()
         if self.stage in {"awaiting_review", "reviewed"} and self.attempts != 0:
             _reject()
         if self.stage == "awaiting_review" and self.review_ref is not None:
@@ -327,7 +351,9 @@ def _checkpoint(intent: TaskIntent, state: TaskPlanState, checkpoint: ReviewChec
     if (checkpoint.scope != intent.scope or checkpoint.task_ref != intent.task_ref
             or checkpoint.intent_sha256 != state.intent_sha256
             or not _time(checkpoint.approved_at) <= current < _time(checkpoint.expires_at)
-            or (state.review_ref is not None and checkpoint.review_ref != state.review_ref)):
+            or (state.review_ref is not None and checkpoint.review_ref != state.review_ref)
+            or (state.review_sha256 is not None
+                and _checkpoint_fingerprint(checkpoint) != state.review_sha256)):
         _reject()
     return checkpoint
 
@@ -366,7 +392,9 @@ def simulate_transition(intent: TaskIntent, state: TaskPlanState, action: str, *
     if attempts > intent.max_attempts:
         _reject()
     return replace(state, stage=next_stage, attempts=attempts,
-                   review_ref=checkpoint.review_ref if action == "review" else state.review_ref)
+                   review_ref=checkpoint.review_ref if action == "review" else state.review_ref,
+                   review_sha256=_checkpoint_fingerprint(checkpoint) if action == "review"
+                   else state.review_sha256)
 
 
 def planning_summary(state: TaskPlanState) -> dict:

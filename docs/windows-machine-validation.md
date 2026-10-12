@@ -90,6 +90,14 @@ powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\Te
 
 GitHub ActionsはPython 3.12/3.13のWindowsで同じ合成probeを実行し、匿名化report.jsonのみを1日保存する。LinuxではWindows ACL/listenerをSKIP。既存のNTFS junction/POSIX modeテストのSKIPも別に数える。ユーザーPC・実エクスポートの結果は生成しない。
 
+## 共有されたreport.jsonの受入れ
+
+`nexus.owner_receipt.validate_owner_receipt`は、本人がレビューしたJSONのUTF-8 bytesと、受領側が別途照合したsource HEADを受け取る純粋な検証関数。ファイル、プロセス、ネットワーク、ACLへアクセスしない。既存の10 field・14 Gateを変更せず、16 KiB上限、重複/未知field、型、UTC日時、固定status/reason、完全一致するrepository/HEAD、`context=owner_windows`、clean checkoutを検証する。GitHub runner/test harnessのreportやPR merge checkoutのSHAは所有者source HEADの代用にならない。
+
+自動8 GateのFAIL/interruptedと未実施NOT RUNはそのまま件数化する。offline PASSは`operator_attested`とcold_start PASSの組だけを受理する。残りの手動3 Gateと実形式2 Gateはreport内ではNOT RUNを維持し、別メモの実測結果を自動reportへ混ぜない。余分なconsole/path/key欄や手動Gateの書換えがあるJSONは固定codeで拒否する。PowerShell検査のbool JSONも重複keyを拒否し、falseが後続のtrueに置換されてPASSになる曖昧さを防ぐ。
+
+受入れsummaryは`origin=owner_declared_not_authenticated`、`official_v1=BLOCKED`。JSONの構造とrevisionの整合確認であり、作成者・実機・実行内容を独立に認証するものではない。所有者の本人確認、ローカル除秘レビュー、手動Gateの実測確認が別途必要。現在は所有者report未受領で **NOT RUN**。共有する物は引き続き本人レビュー済みreport.jsonと短い手動Gateメモだけ。
+
 ## 公式参照
 
 - [Get-Acl](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.security/get-acl)

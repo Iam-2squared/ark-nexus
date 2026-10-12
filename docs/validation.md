@@ -2,10 +2,17 @@
 
 ## Current mega-batch evidence pointer
 
-Source7969166 / run38218729066 passed5/5 (DOM45/build/Chromium7 and four backends).
-Final navigation review then added empty-hash Back/forward and unknown-anchor
-regressions; one failure preceded a one-line fix. DOM47/build PASS locally.
-The final source requires separate CI/artifact evidence in Draft PR1.
+NEXT batch start: source79e56eb20a581825b0ce2392c82fc0d7127918fa /
+run38219581039 passed5/5: Linux512 PASS/3 platform SKIP each, Windows513 PASS/
+2 platform SKIP each, Ruff in all four, DOM47/build/Chromium7. This exact-source
+baseline is retained. The [NEXT batch](next-batch-2026-10-12.md) adds independent
+SQL/native/import/integrity/receipt/disabled-contract tests; its source HEAD needs
+its own complete CI/artifact evidence in Draft PR1. UI code and original gates
+are unchanged. V1 remains BLOCKED.
+
+Earlier source7969166 / run38218729066 passed5/5 (DOM45/build/Chromium7 and four
+backends). Navigation review then reproduced empty-hash Back/forward and
+unknown-anchor handling before source79e56eb and its separate run above.
 
 First batch source79c1abe / run38218223288 had4/5 PASS: four backends and DOM44/build
 passed, Chromium6/7. The added exact conversation-filter label failed. One

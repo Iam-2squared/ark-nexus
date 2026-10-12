@@ -76,6 +76,15 @@ See [batch changes/evidence](docs/megabatch-2026-10-12.md),
 Every destination must be NEW and checkout-local. Do not use the normal profile;
 the summary is not an owner-machine or performance PASS.
 
+The NEXT batch adds bounded statement rollback/native VFS evidence, strict
+multipart framing/parameter checks, stored-ID/BLOB integrity rejection,
+owner-report receipt validation and review-lease binding in disabled simulations.
+UI source/styles, actual-format parser registry and real execution remain unchanged.
+Run the new synthetic-only probe with `python -m nexus.sqlite_probe --rows 2048`.
+Read its [runtime/surface limits](docs/sqlite-statement-observation.md) and
+[next-batch evidence](docs/next-batch-2026-10-12.md) before interpreting a result.
+It does not qualify private imports, owner ACLs, swap or real-provider formats.
+
 See [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), [capabilities](docs/capability-matrix.md), [format gate](docs/provider-format-validation.md), [security/data policy](docs/security-and-data.md), and [fixed evaluations](docs/validation.md).
 ## Windows実機・実形式の検証準備
 

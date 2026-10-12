@@ -45,16 +45,20 @@ exhaustive native file-open observation or owner Windows evidence.
 |---|---|---|
 | Multipart spool | Implemented memory-only, synthetic-tested | Owner Windows/browser/offline |
 | SQLite TEMP/sort/materialization | MEMORY enforced on verified build | Native per-platform observation and owner runtime |
-| SQLite statement journals | Unqualified | MEMORY does not establish placement; large trigger update/abort needs containment |
+| SQLite statement journals | Bounded SQL and native VFS observation added | MEMORY alone does not establish all-path placement; see [runtime-specific statement evidence](sqlite-statement-observation.md) |
 | Journal/WAL/SHM/crash leftovers | Private sibling checks/recovery regressions | Normal Windows profile ACL and owner crash/remnant checks |
 | RAM/swap/pagefile/crash dumps/OS snapshots | Not encrypted or erased | Separate threat model and owner-approved protection |
 | Same OS user/admin/SYSTEM/path races | Outside isolation guarantee | OS account separation and normal-profile Gate |
 
-Linux strace was refused by the sandbox's ptrace restriction. A test-only
-alternative could not observe the actual SQLite because this runtime uses a
-builtin _sqlite3 with no exported VFS symbols. Neither changed OS settings or
-the default VFS. Native capture is NOT RUN, not PASS. An empty directory after
-a query does not prove absence of an unlinked temporary file.
+Linux strace was refused by the sandbox's ptrace restriction. The Work default
+builtin _sqlite3/SQLite3.53.1 has no exported VFS symbols: its native capture
+remains NOT RUN. The NEXT batch adds an explicit-VFS disposable-process harness
+and observes a separately labelled Python3.12.3/SQLite3.45.1 actually executing
+Nexus code, including a FILE positive control with2 spilled statement journals.
+No OS settings, original VFS or default VFS changed. The [detailed scope matrix](
+sqlite-statement-observation.md) separates VFS calls from physical unnamed
+pathnames, syscalls, owner runtime, crash and swap. An empty directory after a
+query does not prove absence of an unlinked temporary file.
 
 Two import permits bound concurrent requests, not total RSS/SQLite allocation or
 all server connections. Normalization/decompression need additional RAM; forced

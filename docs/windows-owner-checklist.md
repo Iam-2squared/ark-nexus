@@ -15,6 +15,8 @@
 6. 手動UIと別OSユーザー検査は詳細ガイドに従い、下表を別メモで記録する。通常保存先ACL、実形式は別の承認と証拠が必要。新アカウント作成、管理者昇格、権限変更で条件を満たそうとしない。
 7. 自分で除秘を確認した**report.jsonと手動Gate結果のみ**共有する。tmp全体、DB、key、SID、氏名、端末名、パス、トークン、raw console dump、画面内の個人情報は共有しない。実形式のサンプルは[別の受入れ手順](real-format-acceptance.md)による。
 
+受領側は[純粋なreceipt検証](windows-machine-validation.md#共有されたreportjsonの受入れ)で、既存10 field・14 Gate、固定の理由、owner context、clean checkout、別途照合したsource HEADを確認できる。JSONへ独自欄や手動PASSを追記しない。手動Gateは別メモのまま。検証は実機の本人証明を代行せず、runnerのreportを所有者証拠へ変換しない。実機reportは現在未受領、V1公式は **BLOCKED**。
+
 | Gate | 今の実機判定 | 共有できる固定理由／必要条件 |
 |---|---|---|
 | offline_cold_start | NOT RUN | operator_required。本人の切断確認＋その実行のJSONがあればoperator_attested |
