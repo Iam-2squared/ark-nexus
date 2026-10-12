@@ -105,3 +105,10 @@ None of these logical checks qualifies SQLite statement-journal native storage,
 crash remnants, swap/pagefile exposure, normal Windows profile ACLs or real
 provider-format completeness. Those gates remain separately reported and V1
 official remains BLOCKED.
+
+The current forensic follow-up retains this original failure without mutation.
+Its count-only shape comparisons, new fail-closed DB guards and bounded
+observed/unobserved fixed-test harness are documented in
+[forensics-2026-10-12.md](forensics-2026-10-12.md). The prior 122-pass collection
+order is not reconstructed by the new related scope, and no new successful run
+is evidence that the historical root cause was corrected.

@@ -85,6 +85,20 @@ Read its [runtime/surface limits](docs/sqlite-statement-observation.md) and
 [next-batch evidence](docs/next-batch-2026-10-12.md) before interpreting a result.
 It does not qualify private imports, owner ACLs, swap or real-provider formats.
 
+The forensic follow-up preserves the original fixed 10k test and its retained
+failure evidence. Its persisted-state discrepancy is **OPEN / BLOCKED**, with
+no established root cause. New reference/snapshot/file-identity guards refuse
+known corrupt states; they do not repair that anomaly. Bounded observed and
+unobserved comparisons use new checkout-local synthetic roots only:
+
+    python -m nexus.data_forensics --scopes single related full --trials 1
+    python -m nexus.data_forensics --scopes single related full --trials 1 --unobserved
+
+See [forensic changes and evidence](docs/forensics-2026-10-12.md),
+[DB guards](docs/db-guard-forensics.md) and
+[mode-specific native qualification](docs/native-qualification-forensics.md).
+Actual provider parsers, external execution and private imports remain disabled.
+
 See [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), [capabilities](docs/capability-matrix.md), [format gate](docs/provider-format-validation.md), [security/data policy](docs/security-and-data.md), and [fixed evaluations](docs/validation.md).
 ## Windows実機・実形式の検証準備
 

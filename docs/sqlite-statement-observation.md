@@ -81,6 +81,16 @@ Both configurations preserved rollback/integrity/backup equality. The control
 also opened 2 unnamed transient databases; 4 unnamed opens total. These are VFS
 calls, not fsync durability, syscall capture or secure deletion evidence.
 
+The forensic follow-up now reports **separate DELETE and WAL statement gates**.
+In the 2,048-row run above, FILE/DELETE did not spill a statement journal:
+DELETE remains **NOT RUN / positive_control_not_observed**. FILE/WAL's positive
+control qualifies only that exact WAL workload. Generic VFS capture success is
+separate from both gates. An additional direct-backup experiment observes its
+own two explicit VFS connections per mode, while production copy/restore
+connections remain uncaptured. See [the follow-up scope and error review](
+native-qualification-forensics.md) before interpreting the original aggregate
+capture counts.
+
 Latest Linux/Windows x Python3.12/3.13 native classifications must come from the
 new source-HEAD CI logs. An unavailable capability is `captured=false`,
 `reason=capability_unavailable`, **NOT RUN**. Native callback errors, subprocess

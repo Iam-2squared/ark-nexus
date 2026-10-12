@@ -12,4 +12,9 @@ ARK Nexus is a separate repository and development track from ARK AI V1–V10.
 
 V1 PASS requires actual redacted provider fixtures and security evidence; synthetic-only tests are not completion evidence.
 
+Official V1 remains **BLOCKED**. The retained fixed10k persisted-state anomaly
+is OPEN until a root cause and independent regression establish its correction.
+[Forensic guards and successful new comparisons](forensics-2026-10-12.md) do
+not promote that anomaly, owner Windows or real-format gates to PASS.
+
 Completion criteria above are retained. [Validation](validation.md) adds a fixed 30-case mixed-language suite without removing the original 30 assertions. [Capability Matrix](capability-matrix.md) separates official support from Nexus connection/implementation state. Windows ACL evidence and owner-machine cold-start/offline checks remain open; no weighted progress percentage is claimed.

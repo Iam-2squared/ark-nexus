@@ -8,8 +8,14 @@ from datetime import datetime, timezone
 from importlib import resources
 from pathlib import Path
 
-from nexus.integrity import inspect_integrity
-from nexus.private_storage import checked_database_path, configure_memory_temp, prepare_database
+from nexus.integrity import inspect_integrity, require_references
+from nexus.private_storage import (
+    PrivateStorageError,
+    configure_memory_temp,
+    database_identity,
+    prepare_database,
+    require_database_identity,
+)
 
 
 def utcnow() -> str:
@@ -23,24 +29,39 @@ def new_id() -> str:
 class Store:
     def __init__(self, path: Path):
         self.path = prepare_database(path)
+        self._identity = database_identity(self.path)
         self.migrate()
 
     @contextmanager
     def connect(self):
-        checked_database_path(self.path)
-        conn = sqlite3.connect(self.path, timeout=15)
+        require_database_identity(self.path, self._identity)
+        # Store has already created/migrated its main file. A later disappearance
+        # must fail instead of silently recreating an unrelated empty database.
+        conn = sqlite3.connect(self.path.as_uri() + "?mode=rw", uri=True, timeout=15)
         try:
+            require_database_identity(self.path, self._identity)
             conn.row_factory = sqlite3.Row
             configure_memory_temp(conn)
             conn.execute("PRAGMA foreign_keys=ON")
+            if conn.execute("PRAGMA foreign_keys").fetchone()[0] != 1:
+                raise PrivateStorageError("SQLite foreign-key enforcement is unavailable")
             conn.execute("PRAGMA busy_timeout=15000")
             yield conn
+            require_database_identity(self.path, self._identity)
             conn.commit()
+            require_database_identity(self.path, self._identity)
         except BaseException:
             conn.rollback()
             raise
         finally:
             conn.close()
+
+    @contextmanager
+    def _snapshot(self):
+        with self.connect() as db:
+            db.execute("BEGIN")
+            require_references(db)
+            yield db
 
     def migrate(self) -> None:
         with self.connect() as conn:
@@ -82,6 +103,7 @@ class Store:
         seen_messages = 0
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
+            require_references(db)
             source_id_row = db.execute(
                 "SELECT id FROM source_instances WHERE provider=? AND product=? AND account_alias=?",
                 (provider, "consumer_chat", account_alias),
@@ -182,11 +204,12 @@ class Store:
                 "INSERT INTO audit_log(id,action,actor,target,outcome,at) VALUES(?,?,?,?,?,?)",
                 (new_id(), "import", "local_user", batch_id, "success", now),
             )
+            require_references(db)
         return {"id": batch_id, "source_id": source_id, "status": "imported", "counts": counts,
                 "parser_version": parser_version, "sync_mode": "manual"}
 
     def sources(self) -> list[dict]:
-        with self.connect() as db:
+        with self._snapshot() as db:
             rows = db.execute("SELECT * FROM source_instances ORDER BY provider,account_alias").fetchall()
         return [{**{key: r[key] for key in r.keys() if key != "capabilities_json"},
                  "capabilities": {"read_history": False, "manual_fixture_import": True,
@@ -199,8 +222,7 @@ class Store:
                 for r in rows]
 
     def overview(self) -> dict:
-        with self.connect() as db:
-            db.execute("BEGIN")
+        with self._snapshot() as db:
             counts = {name: db.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
                       for name, table in (("sources", "source_instances"),
                                           ("conversations", "conversations"),
@@ -214,10 +236,13 @@ class Store:
             return inspect_integrity(db)
 
     def _page(self, sql: str, params: list | tuple, limit: int, offset: int) -> dict:
-        with self.connect() as db:
-            db.execute("BEGIN")
-            total = db.execute(f"SELECT count(*) FROM ({sql})", params).fetchone()[0]
-            rows = db.execute(sql + " LIMIT ? OFFSET ?", [*params, limit, offset]).fetchall()
+        with self._snapshot() as db:
+            return self._query_page(db, sql, params, limit, offset)
+
+    @staticmethod
+    def _query_page(db, sql: str, params: list | tuple, limit: int, offset: int) -> dict:
+        total = db.execute(f"SELECT count(*) FROM ({sql})", params).fetchone()[0]
+        rows = db.execute(sql + " LIMIT ? OFFSET ?", [*params, limit, offset]).fetchall()
         items = [dict(row) for row in rows]
         next_offset = offset + len(items)
         return {"items": items, "total": total, "limit": limit, "offset": offset,
@@ -236,7 +261,7 @@ class Store:
         return page
 
     def receipt(self, batch_id: str) -> dict | None:
-        with self.connect() as db:
+        with self._snapshot() as db:
             row = db.execute("SELECT * FROM import_batches WHERE id=?", (batch_id,)).fetchone()
         return ({**dict(row), "counts": json.loads(row["counts_json"]),
                  "errors": json.loads(row["errors_json"])} if row else None)
@@ -267,13 +292,13 @@ class Store:
         return page["items"] if page else []
 
     def messages_page(self, conversation_id: str, limit: int = 200, offset: int = 0) -> dict | None:
-        with self.connect() as db:
+        with self._snapshot() as db:
             if not db.execute("SELECT 1 FROM conversations WHERE id=?", (conversation_id,)).fetchone():
                 return None
-        return self._page(
-            "SELECT m.* FROM messages m WHERE m.conversation_id=? ORDER BY m.rowid ASC",
-            (conversation_id,), limit, offset
-        )
+            return self._query_page(
+                db, "SELECT m.* FROM messages m WHERE m.conversation_id=? ORDER BY m.rowid ASC",
+                (conversation_id,), limit, offset
+            )
 
     def search(self, q: str, project_id: str | None, source_id: str | None) -> list[dict]:
         return self.search_page(q, project_id, source_id)["items"]
@@ -281,6 +306,8 @@ class Store:
     def search_page(self, q: str, project_id: str | None, source_id: str | None,
                     limit: int = 100, offset: int = 0) -> dict:
         if not q.strip():
+            with self._snapshot():
+                pass
             return {"items": [], "total": 0, "limit": limit, "offset": offset, "next_offset": None}
         escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         needle = f"%{escaped}%"
@@ -300,7 +327,7 @@ class Store:
         )
 
     def projects(self) -> list[dict]:
-        with self.connect() as db:
+        with self._snapshot() as db:
             rows = db.execute("SELECT p.*,(SELECT count(*) FROM conversations c "
                               "WHERE c.project_id=p.id) conversation_count "
                               "FROM projects p ORDER BY name").fetchall()
@@ -309,6 +336,8 @@ class Store:
     def create_project(self, name: str, repo_url: str | None) -> dict:
         record = {"id": new_id(), "name": name, "repo_url": repo_url, "sharing_policy": "none"}
         with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            require_references(db)
             db.execute(
                 "INSERT INTO projects(id,name,repo_url,sharing_policy) VALUES(?,?,?,?)",
                 (record["id"], name, repo_url, "none"),
@@ -317,6 +346,8 @@ class Store:
 
     def assign_conversation(self, conversation_id: str, project_id: str | None) -> bool:
         with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            require_references(db)
             if project_id and not db.execute(
                 "SELECT 1 FROM projects WHERE id=?", (project_id,)
             ).fetchone():

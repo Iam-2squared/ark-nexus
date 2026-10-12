@@ -22,7 +22,9 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e ".[dev]"
-      - run: python -m pytest -q
+      - run: python -m pytest -q --basetemp=tmp/pytest-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Bounded fixed-10k forensic comparison
+        run: python -m nexus.data_forensics --scopes single --root tmp/forensics-${{ github.run_id }}-${{ github.run_attempt }} --source-head "${{ github.event.pull_request.head.sha || github.sha }}"
       - name: Synthetic SQLite statement and native VFS evidence
         run: python -m nexus.sqlite_probe --source-head "${{ github.event.pull_request.head.sha || github.sha }}"
       - run: python -m ruff check .

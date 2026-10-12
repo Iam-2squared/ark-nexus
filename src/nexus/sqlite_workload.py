@@ -13,7 +13,12 @@ from pathlib import Path
 from nexus.importers import Conversation, Message
 from nexus.integrity import inspect_integrity
 from nexus.maintenance import copy_database
-from nexus.private_storage import checked_path, configure_memory_temp
+from nexus.private_storage import (
+    checked_database_path,
+    checked_path,
+    configure_memory_temp,
+    prepare_database,
+)
 from nexus.store import Store
 
 DEFAULT_ROWS = 2048
@@ -235,3 +240,57 @@ def run_workload(root: Path, *, rows: int = DEFAULT_ROWS, connection_factory=sql
         reports.append(report)
     return {"status": "synthetic_PASS", "workloads": reports,
             "storage_location_qualified": False, "private_import_allowed": False}
+
+
+def run_backup_connections(root: Path, *, source_root: Path, rows: int,
+                           connection_factory, before_case=None) -> dict:
+    """Additional explicit-connection experiment, separate from production copy.
+
+    Both connections can reach the disposable VFS, while production copy code
+    remains an independent logical gate. Sources are only the generated sibling
+    SQL workloads, opened mode=ro; destinations must be newly created.
+    """
+    root, source_root = checked_path(root), checked_path(source_root)
+    require(type(rows) is int and 32 <= rows <= MAX_ROWS
+            and root.parent == source_root.parent and root != source_root
+            and not root.exists() and source_root.is_dir())
+    root.mkdir(mode=0o700, parents=True, exist_ok=False)
+    outcomes = []
+    for mode in ("delete", "wal"):
+        source = checked_database_path(source_root / mode / "synthetic.sqlite3")
+        require(source.is_file() and source.stat().st_size <= MAX_DATABASE_BYTES)
+        destination = root / mode / "synthetic.sqlite3"
+        prepare_database(destination)
+        if before_case is not None:
+            before_case(mode)
+        with closing(connection_factory(source, readonly=True)) as reader:
+            with closing(connection_factory(destination, readonly=False)) as writer:
+                configure_memory_temp(reader)
+                configure_memory_temp(writer)
+                reader.execute("PRAGMA foreign_keys=ON")
+                writer.execute("PRAGMA foreign_keys=ON")
+                page_size = writer.execute("PRAGMA page_size").fetchone()[0]
+                require(writer.execute(f"PRAGMA max_page_count={MAX_DATABASE_BYTES // page_size}")
+                        .fetchone()[0] == MAX_DATABASE_BYTES // page_size)
+                deadline = time.monotonic() + MAX_SECONDS
+
+                def progress(_status, _remaining, _total):
+                    require(time.monotonic() < deadline)
+
+                reader.execute("BEGIN")
+                before = logical_digest(reader)
+                require(inspect_integrity(reader)["ok"] and fts_query_counts(reader) == (rows, 0))
+                reader.backup(writer, pages=64, progress=progress, sleep=0.05)
+                require(logical_digest(reader) == before and logical_digest(writer) == before
+                        and inspect_integrity(writer)["ok"]
+                        and fts_query_counts(writer) == (rows, 0))
+                writer.execute("INSERT INTO message_search(message_search) VALUES('integrity-check')")
+                writer.rollback()
+                outcomes.append({"journal_mode": mode, "rows": rows,
+                                 "logical_tables_compared": len(TABLES), "source_readonly": True,
+                                 "source_temp_store": 2, "destination_temp_store": 2,
+                                 "logical_tables_equal": True, "stored_integrity": True,
+                                 "fts_query_equal": True, "fts_internal_integrity": True})
+    return {"status": "synthetic_PASS", "workloads": outcomes,
+            "production_backup_api_captured": False, "storage_location_qualified": False,
+            "private_import_allowed": False}

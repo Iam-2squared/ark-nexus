@@ -2,7 +2,7 @@
 
 import hashlib
 import re
-from dataclasses import asdict, dataclass, fields, replace
+from dataclasses import asdict, dataclass, field, fields, replace
 from typing import Literal, Protocol
 
 from nexus.importers import (
@@ -23,7 +23,8 @@ class AdapterIdentity:
     provider: Literal["openai", "anthropic"]
     product: Literal["consumer_chatgpt", "consumer_claude"]
     parser_version: str
-    schema_evidence_id: str  # Private review reference, never a raw export path or account ID.
+    # Do not expose a private review reference through incidental debug/exception repr.
+    schema_evidence_id: str = field(repr=False)
 
     def __post_init__(self) -> None:
         if type(self.provider) is not str or type(self.product) is not str:
@@ -54,8 +55,10 @@ class HistoryCoverage:
 
 @dataclass(frozen=True)
 class ParsedHistory:
-    identity: AdapterIdentity
-    conversations: tuple[Conversation, ...]
+    # Normalized source data is as private as the raw payload. The default repr
+    # can safely describe trust/coverage without rendering review refs or text.
+    identity: AdapterIdentity = field(repr=False)
+    conversations: tuple[Conversation, ...] = field(repr=False)
     coverage: HistoryCoverage
     contract_version: str = CONTRACT_VERSION
     trust: Literal["untrusted_source_data"] = "untrusted_source_data"

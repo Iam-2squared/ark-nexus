@@ -72,6 +72,32 @@ def checked_database_path(value: Path) -> Path:
     return path
 
 
+def database_identity(value: Path) -> tuple[int, int, int, int]:
+    """Bind an operation to one regular main file and its reviewed directory.
+
+    This detects cooperative replacement between checkpoints, not an atomic
+    defence against a privileged or same-user filesystem race. Sidecars remain
+    checked separately because SQLite legitimately creates/removes them.
+    """
+    path = checked_database_path(value)
+    try:
+        file = path.stat(follow_symlinks=False)
+        directory = path.parent.stat(follow_symlinks=False)
+    except OSError:
+        raise PrivateStorageError("Private database identity is unavailable") from None
+    if not stat.S_ISREG(file.st_mode) or not stat.S_ISDIR(directory.st_mode):
+        raise PrivateStorageError("Private database identity is unavailable")
+    if any(type(identifier) is not int or identifier <= 0
+           for identifier in (file.st_ino, directory.st_ino)):
+        raise PrivateStorageError("Private database identity is unavailable")
+    return file.st_dev, file.st_ino, directory.st_dev, directory.st_ino
+
+
+def require_database_identity(value: Path, expected: tuple[int, int, int, int]) -> None:
+    if database_identity(value) != expected:
+        raise PrivateStorageError("Private database identity changed")
+
+
 def prepare_database(value: Path, *, exclusive: bool = False) -> Path:
     path = checked_database_path(value)
     if exclusive and any(Path(str(path) + suffix).exists()

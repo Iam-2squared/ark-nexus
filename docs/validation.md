@@ -2,6 +2,14 @@
 
 ## Current mega-batch evidence pointer
 
+Forensic follow-up start: source18e61002a7f89bc065c296e100a574bf10ff1ac4 /
+run38235807198 passed5/5: Linux697 PASS/3 platform SKIP each, Windows698 PASS/
+2 POSIX SKIP each, Ruff, DOM47/build/Chromium7. The unchanged fixed10k test's
+retained persisted-state discrepancy remains OPEN/BLOCKED despite that CI.
+[Forensic evidence](forensics-2026-10-12.md) separates observed/unobserved
+comparisons, independent refusal fixes and mode-specific native gates. New
+source-HEAD CI must be verified separately. Official V1 remains BLOCKED.
+
 NEXT batch start: source79e56eb20a581825b0ce2392c82fc0d7127918fa /
 run38219581039 passed5/5: Linux512 PASS/3 platform SKIP each, Windows513 PASS/
 2 platform SKIP each, Ruff in all four, DOM47/build/Chromium7. This exact-source

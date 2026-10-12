@@ -1,5 +1,6 @@
 """Safe input staging and synthetic adapter contracts; NOT live vendor adapters."""
 
+import bz2
 import hashlib
 import io
 import json
@@ -7,6 +8,7 @@ import lzma
 import math
 import re
 import stat
+import struct
 import zipfile
 import zlib
 from dataclasses import dataclass
@@ -18,6 +20,7 @@ MAX_UNCOMPRESSED_BYTES = 32 * 1024 * 1024
 MAX_ZIP_FILES = 200
 MAX_MESSAGES = 50000
 PARSER_VERSION = "synthetic-fixture-1"
+_ZIP_LOCAL_HEADER = struct.Struct("<4s5H3I2H")
 
 
 class ImportProblem(ValueError):
@@ -59,6 +62,65 @@ ADAPTERS = {
     "chatgpt": SyntheticAdapter("chatgpt", "conversations", "id", "title", "role", "text"),
     "claude": SyntheticAdapter("claude", "chats", "uuid", "name", "sender", "content"),
 }
+
+
+def _bounded_zip_json(blob: bytes, archive: zipfile.ZipFile, info: zipfile.ZipInfo) -> bytes:
+    """Validate actual decoded size and stream termination, not a truncated prefix.
+
+    ZipExtFile can stop at the directory's declared size before a decoder's EOF.
+    Use ZipFile's header/name/overlap checks without its data read, then public
+    bounded codec APIs. Both the compressed input and decoded output are bounded.
+    """
+    if info.header_offset < 0:
+        raise ImportProblem("Invalid ZIP archive")
+    header = _ZIP_LOCAL_HEADER.unpack_from(blob, info.header_offset)
+    if header[0] != b"PK\x03\x04" or header[2] != info.flag_bits or header[3] != info.compress_type:
+        raise ImportProblem("Invalid ZIP archive")
+    # Retain stdlib filename, overlap, encryption and unsupported-method checks.
+    with archive.open(info):
+        pass
+    start = info.header_offset + _ZIP_LOCAL_HEADER.size + header[9] + header[10]
+    encoded = blob[start:start + info.compress_size]
+    if len(encoded) != info.compress_size:
+        raise ImportProblem("Invalid ZIP archive")
+    output_limit = info.file_size + 1
+    if info.compress_type == zipfile.ZIP_STORED:
+        data = encoded
+    else:
+        if info.compress_type == zipfile.ZIP_DEFLATED:
+            decoder = zlib.decompressobj(-15)
+            data = decoder.decompress(encoded, output_limit)
+            remaining = decoder.unconsumed_tail
+        elif info.compress_type == zipfile.ZIP_BZIP2:
+            decoder = bz2.BZ2Decompressor()
+            data = decoder.decompress(encoded, max_length=output_limit)
+            remaining = b""
+        elif info.compress_type == zipfile.ZIP_LZMA:
+            # ZIP LZMA properties use a five-byte LZMA1 filter description.
+            # Non-EOS streams need a separate qualified framing contract.
+            if not info.flag_bits & 2:
+                raise ImportProblem("Unsupported ZIP LZMA framing")
+            if len(encoded) < 9 or struct.unpack_from("<H", encoded, 2)[0] != 5:
+                raise ImportProblem("Invalid ZIP archive")
+            properties = encoded[4]
+            dictionary = struct.unpack_from("<I", encoded, 5)[0]
+            if properties >= 225:
+                raise ImportProblem("Invalid ZIP archive")
+            if dictionary > MAX_UNCOMPRESSED_BYTES:
+                raise ImportProblem("ZIP LZMA dictionary exceeds safety limit")
+            decoder = lzma.LZMADecompressor(lzma.FORMAT_RAW, filters=[{
+                "id": lzma.FILTER_LZMA1, "dict_size": dictionary,
+                "lc": properties % 9, "lp": properties // 9 % 5, "pb": properties // 45,
+            }])
+            data = decoder.decompress(encoded[9:], max_length=output_limit)
+            remaining = b""
+        else:
+            raise ImportProblem("Invalid ZIP archive")
+        if not decoder.eof or decoder.unused_data or remaining:
+            raise ImportProblem("Invalid ZIP archive")
+    if len(data) != info.file_size or zlib.crc32(data) != info.CRC:
+        raise ImportProblem("Invalid ZIP archive")
+    return data
 
 
 def safe_json_payload(blob: bytes, filename: str) -> bytes:
@@ -108,13 +170,12 @@ def safe_json_payload(blob: bytes, filename: str) -> bytes:
             if len(json_names) != 1:
                 raise ImportProblem("Synthetic V1 archive must contain exactly one JSON file")
             info = json_names[0]
-            with z.open(info) as fd:
-                data = fd.read(MAX_UNCOMPRESSED_BYTES + 1)
+            data = _bounded_zip_json(blob, z, info)
             if len(data) > MAX_UNCOMPRESSED_BYTES:
                 raise ImportProblem("ZIP JSON is too large")
             return data
     except (zipfile.BadZipFile, RuntimeError, EOFError, OSError, NotImplementedError,
-            zlib.error, lzma.LZMAError) as exc:
+            UnicodeError, struct.error, zlib.error, lzma.LZMAError) as exc:
         raise ImportProblem("Invalid ZIP archive") from exc
 
 

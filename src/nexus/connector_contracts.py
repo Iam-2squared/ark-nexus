@@ -322,6 +322,10 @@ class TaskPlanState:
             _reject()
         if self.stage == "awaiting_review" and self.review_ref is not None:
             _reject()
+        # A cancelled plan may have never been reviewed (zero attempts), but
+        # cancellation cannot erase the review snapshot for a prior attempt.
+        if self.attempts > 0 and self.review_ref is None:
+            _reject()
         if self.stage != "simulation_cancelled" and self.stage != "awaiting_review":
             if self.review_ref is None:
                 _reject()

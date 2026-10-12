@@ -89,10 +89,16 @@ def powershell(repo: Path, script: str, *arguments: str) -> dict:
     executable = shutil.which("pwsh") or shutil.which("powershell")
     if not executable:
         raise ValueError("Windows inspection unavailable")
-    result = subprocess.run([executable, "-NoProfile", "-NonInteractive", "-ExecutionPolicy",
-                             "Bypass", "-File",
-                             str(script_path), *arguments],
-                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=30, check=False)
+    try:
+        result = subprocess.run([executable, "-NoProfile", "-NonInteractive", "-ExecutionPolicy",
+                                 "Bypass", "-File",
+                                 str(script_path), *arguments],
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                timeout=30, check=False)
+    except (OSError, subprocess.SubprocessError):
+        # Transport exceptions can include absolute command paths and captured
+        # output. Only fixed diagnostics leave this inspection boundary.
+        raise ValueError("Windows inspection failed") from None
     if result.returncode:
         raise ValueError("Windows inspection failed")
     if len(result.stdout) > 4096:
@@ -181,6 +187,8 @@ def _expect(condition: bool) -> None:
 
 def run_probe(repo: Path, root: Path, report: dict, offline_attested: bool = False) -> None:
     """root must be a new, empty directory owned by this invocation."""
+    if type(offline_attested) is not bool:
+        raise ValueError("Invalid offline attestation classification") from None
     process = None
     gate = "owned_test_acl"
     try:

@@ -7,33 +7,49 @@ from pathlib import Path
 
 from nexus.cli import PrivateArgumentParser
 from nexus.integrity import inspect_integrity
-from nexus.private_storage import checked_database_path, configure_memory_temp, prepare_database
+from nexus.private_storage import (
+    checked_database_path,
+    configure_memory_temp,
+    database_identity,
+    prepare_database,
+    require_database_identity,
+)
 
 
 def copy_database(source: Path, destination: Path) -> None:
     source = checked_database_path(source)
     if not source.is_file():
         raise FileNotFoundError("Source database does not exist")
+    source_identity = database_identity(source)
     destination = prepare_database(destination, exclusive=True)
-    created = destination.stat(follow_symlinks=False)
+    destination_identity = database_identity(destination)
     try:
         with closing(sqlite3.connect(source.as_uri() + "?mode=ro", uri=True)) as reader:
+            require_database_identity(source, source_identity)
             configure_memory_temp(reader)
             reader.execute("BEGIN")
             if not inspect_integrity(reader)["ok"]:
                 raise ValueError("Source database failed stored-record integrity check")
             checked_database_path(destination)
-            with closing(sqlite3.connect(destination)) as writer:
+            with closing(sqlite3.connect(destination.as_uri() + "?mode=rw", uri=True)) as writer:
+                require_database_identity(source, source_identity)
+                require_database_identity(destination, destination_identity)
                 configure_memory_temp(writer)
                 reader.backup(writer)
+                require_database_identity(source, source_identity)
+                require_database_identity(destination, destination_identity)
+                writer.execute("BEGIN")
                 if not inspect_integrity(writer)["ok"]:
                     raise ValueError("Copied database failed stored-record integrity check")
     except BaseException:
-        # Only the new file created by this invocation can be removed on failure.
-        if destination.exists() and not destination.is_symlink() and not destination.is_junction():
-            current = destination.stat(follow_symlinks=False)
-            if (current.st_dev, current.st_ino) == (created.st_dev, created.st_ino):
+        # Remove only this operation's still-private, unchanged new identity.
+        # A replacement, moved parent or newly shared hardlink is retained.
+        # Cleanup failure must not replace the original interruption/error.
+        try:
+            if database_identity(destination) == destination_identity:
                 destination.unlink()
+        except (OSError, ValueError):
+            pass
         raise
 
 

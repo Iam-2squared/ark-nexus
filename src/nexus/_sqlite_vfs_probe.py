@@ -11,10 +11,13 @@ import collections
 import ctypes as ct
 import os
 import sqlite3
+import threading
+from contextlib import closing
 from pathlib import Path
 
 from nexus.private_storage import checked_path
-from nexus.sqlite_workload import ProbeProblem, require, run_workload
+from nexus.sqlite_evidence import statement_journal_gates
+from nexus.sqlite_workload import ProbeProblem, require, run_backup_connections, run_workload
 
 KINDS = {
     "main_db": 0x100, "temp_db": 0x200, "transient_db": 0x400,
@@ -90,7 +93,7 @@ def runtime_library():
         candidates.append((ct.CDLL(None), "python_executable_exports"))
     required = ("sqlite3_libversion", "sqlite3_sourceid", "sqlite3_vfs_find",
                 "sqlite3_vfs_register", "sqlite3_vfs_unregister")
-    with sqlite3.connect(":memory:") as db:
+    with closing(sqlite3.connect(":memory:")) as db:
         source_id = db.execute("SELECT sqlite_source_id()").fetchone()[0]
     for library, origin in candidates:
         if not all(hasattr(library, name) for name in required):
@@ -99,7 +102,7 @@ def runtime_library():
         library.sqlite3_sourceid.restype = ct.c_char_p
         if (library.sqlite3_libversion().decode("ascii") != sqlite3.sqlite_version
                 or library.sqlite3_sourceid().decode("ascii") != source_id):
-            continue
+            raise ProbeProblem("Python SQLite native runtime did not match")
         library.sqlite3_vfs_find.argtypes = [ct.c_char_p]
         library.sqlite3_vfs_find.restype = ct.POINTER(VFS)
         library.sqlite3_vfs_register.argtypes = [ct.POINTER(VFS), Int]
@@ -114,6 +117,7 @@ class Observer:
     def __init__(self, library, root: Path):
         self.library = library
         self.root = root
+        self.owner_thread = threading.get_ident()
         self.original = library.sqlite3_vfs_find(None)
         if (not self.original or self.original.contents.iVersion != 3
                 or not 8 <= self.original.contents.szOsFile <= 4096):
@@ -121,7 +125,7 @@ class Observer:
         self.original_address = ct.addressof(self.original.contents)
         self.name = b"nexus-disposable-observer-v1"
         if library.sqlite3_vfs_find(self.name):
-            raise Unavailable
+            raise ProbeProblem("Python SQLite observer registration was not isolated")
         self.files = {}
         self.refs = []
         self.counts = collections.Counter()
@@ -160,6 +164,9 @@ class Observer:
     def open(self, _vfs, name, outer_file, flags, output_flags):
         """Preserve sqlite3_filename pointer metadata when delegating xOpen."""
         try:
+            require(threading.get_ident() == self.owner_thread
+                    and outer_file and outer_file not in self.files)
+            ct.cast(outer_file, ct.POINTER(File)).contents.pMethods = ct.POINTER(Methods)()
             kind = next((name for name, bit in KINDS.items() if flags & bit), "other")
             if name:
                 if not self.path_inside(name):
@@ -171,11 +178,23 @@ class Observer:
             self.record("unnamed_open" if not name else "named_open", kind)
             real_file = outer_file + 16
             result = self.original_open(self.original, name, real_file, flags, output_flags)
+            if result == 0 and output_flags:
+                if output_flags[0] & 1:  # SQLITE_OPEN_READONLY as reported by the native VFS.
+                    self.record("readonly_open", kind)
+                if output_flags[0] & 2:  # SQLITE_OPEN_READWRITE.
+                    self.record("readwrite_open", kind)
             methods = ct.cast(real_file, ct.POINTER(File)).contents.pMethods
             # The underlying xClose must still run when failed xOpen sets pMethods.
             if methods:
-                if not 1 <= methods.contents.iVersion <= 3:
+                if not 1 <= methods.contents.iVersion <= 3 or not methods.contents.xClose:
                     self.callback_errors += 1
+                    # Future IO ABIs append fields: the xClose prefix still owns this handle.
+                    # Never install an unsupported proxy or let a failed xOpen leak it.
+                    if methods.contents.xClose:
+                        close = ct.CFUNCTYPE(Int, Pointer)(methods.contents.xClose)
+                        if close(real_file) != 0:
+                            self.callback_errors += 1
+                        ct.cast(real_file, ct.POINTER(File)).contents.pMethods = ct.POINTER(Methods)()
                     return 10
                 proxy = Methods()
                 proxy.iVersion = methods.contents.iVersion
@@ -190,8 +209,10 @@ class Observer:
                     native = signature(pointer)
 
                     def forward(file, *args, _method=method, _native=native,
-                                _result_type=result_type):
+                                _result_type=result_type, _outer_file=outer_file):
                         try:
+                            require(threading.get_ident() == self.owner_thread
+                                    and file == _outer_file and file in self.files)
                             if _method == "xWrite":
                                 self.record("write_calls", kind)
                                 self.record("write_bytes", kind, args[1])
@@ -199,6 +220,8 @@ class Observer:
                                 self.shm_calls += 1
                             value = _native(file + 16, *args)
                             if _method == "xClose":
+                                if value != 0:
+                                    self.callback_errors += 1
                                 self.record("close", kind)
                                 ct.cast(file, ct.POINTER(File)).contents.pMethods = ct.POINTER(Methods)()
                                 self.files.pop(file, None)
@@ -221,6 +244,7 @@ class Observer:
 
     def delete(self, _vfs, name, sync_directory):
         try:
+            require(threading.get_ident() == self.owner_thread)
             if not self.path_inside(name):
                 self.named_outside += 1
                 return 10
@@ -235,12 +259,13 @@ class Observer:
         return bool(found) and ct.addressof(found.contents) == self.original_address
 
     def register(self):
+        require(threading.get_ident() == self.owner_thread)
         require(self.library.sqlite3_vfs_register(ct.byref(self.wrapper), 0) == 0)
         self.registration_count += 1
         require(self.unchanged())
 
     def unregister(self):
-        require(not self.files)
+        require(threading.get_ident() == self.owner_thread and not self.files)
         require(self.library.sqlite3_vfs_unregister(ct.byref(self.wrapper)) == 0)
         require(self.unchanged() and not self.library.sqlite3_vfs_find(self.name))
 
@@ -255,9 +280,12 @@ def capture(root: Path, rows: int) -> dict:
                 "default_vfs_changed": False, "private_import_allowed": False}
     observer.register()
     try:
-        def connection(path):
+        def connection(path, *, readonly=False):
             before = sum(observer.counts.values())
-            db = sqlite3.connect(path.as_uri() + "?vfs=" + observer.name.decode("ascii"), uri=True)
+            uri = path.as_uri() + "?vfs=" + observer.name.decode("ascii")
+            if readonly:
+                uri += "&mode=ro"
+            db = sqlite3.connect(uri, uri=True)
             if sum(observer.counts.values()) <= before:
                 db.close()
                 raise ProbeProblem("Python SQLite native observation was not reached")
@@ -268,7 +296,7 @@ def capture(root: Path, rows: int) -> dict:
 
         workload = run_workload(root / "observed-workload", rows=rows,
                                 connection_factory=connection, before_case=stage)
-        with sqlite3.connect(":memory:") as compiled:
+        with closing(sqlite3.connect(":memory:")) as compiled:
             file_control_supported = "TEMP_STORE=3" not in {
                 value[0] for value in compiled.execute("PRAGMA compile_options")
             }
@@ -283,6 +311,20 @@ def capture(root: Path, rows: int) -> dict:
                 observer.counts[f"file_control_{mode}.statement_journal.open"]
                 for mode in ("delete", "wal")
             )
+        experimental_backup = run_backup_connections(
+            root / "observed-backup-connections", source_root=root / "observed-workload",
+            rows=rows, connection_factory=connection,
+            before_case=lambda mode: stage("backup_" + mode),
+        )
+        experimental_backup["actual_python_connections_captured"] = all(
+            observer.counts[f"backup_{mode}.main_db.open"] == 2
+            and observer.counts[f"backup_{mode}.main_db.close"] == 2
+            and observer.counts[f"backup_{mode}.main_db.readonly_open"] == 1
+            and observer.counts[f"backup_{mode}.main_db.readwrite_open"] == 1
+            and observer.counts[f"backup_{mode}.main_db.write_calls"] > 0
+            for mode in ("delete", "wal")
+        )
+        require(experimental_backup["actual_python_connections_captured"])
         require(observer.callback_errors == 0 and observer.named_outside == 0)
         require(all(observer.counts[f"{mode}.main_db.write_calls"] > 0
                     and observer.counts[f"{mode}.main_db.open"] == 1
@@ -299,6 +341,10 @@ def capture(root: Path, rows: int) -> dict:
                 "shm_callback_count": observer.shm_calls,
                 "counts": dict(sorted(observer.counts.items())), "workload": workload,
                 "file_positive_control": positive_control,
+                "experimental_backup_capture": experimental_backup,
+                "statement_journal_gates": statement_journal_gates(
+                    dict(observer.counts), file_control_supported=file_control_supported,
+                ),
                 "os_syscalls_captured": False, "physical_unnamed_paths_qualified": False,
                 "backup_connections_captured": False, "private_import_allowed": False}
     finally:
